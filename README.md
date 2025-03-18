@@ -10,25 +10,23 @@ We successfully benchmarked the tool to genomic, transcriptomic, (phospho)proteo
 
 In summary, our work demonstrates that PatientProfiler is a tool for patient-specific network analysis, advancing personalized medicine towards the identification of actionable biomarkers and tailored therapeutic strategies.
 
-Read the full paper on [biorxive](https://www.biorxiv.org/content/10.1101/2025.01.31.635886v1.full)
-
-<img src="./img/Figure1-2.svg" align="right" width="180" height="200"/>
+Read the full paper on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.01.31.635886v1.full)
 
 ## Repository
 
 The repository is divided in Steps:
 
 
-    -   1. [Step1: Harmonization of input data]
+1.  [Step1: Harmonization of input data]
 
-    -   2. [Step2: Protein activity inference](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step2/Step2.html)
-    
-    -   3. [Step3: Generation of mechanistic models]
-    
-    -   4. [Step4: Network-based startification](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step4.html)
-    
-    -   5. [Step5: Identification of biomarkers]
-    
-    -   6. [Benchmark]
-    
-<!-- -->
+2.  [Step2: Protein activity inference](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step2/Step2.html)
+
+3.  [Step3: Generation of mechanistic models]
+
+4.  [Step4: Network-based startification](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step4.html)
+
+5.  [Step5: Identification of biomarkers]
+
+6.  [Benchmark]
+
+<img src="./img/Figure1-2.svg" width="720" height="800"/>
