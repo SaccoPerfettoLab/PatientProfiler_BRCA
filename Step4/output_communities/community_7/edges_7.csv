@@ -1,0 +1,111 @@
+source,target,sign,mechanism
+ATR,RASSF1_INHIBITED,-1,phosphorylation
+PPP1CA,YAP1,1,dephosphorylation
+MAPKAPK2,MDM2_INHIBITED,-1,phosphorylation
+PIP3,PDPK1,1,chemical activation;relocalization
+STK11,PAK1_INHIBITED,-1,phosphorylation
+CULLIN_1_RBX1_SKP1,SMURF1_INHIBITED,-1,polyubiquitination
+CULLIN_1_RBX1_SKP1,AURKB_INHIBITED,-1,polyubiquitination
+MAPK8,ATF2,1,phosphorylation
+PRKAA1,HSF1_INHIBITED,-1,phosphorylation
+CULLIN_1_RBX1_SKP1,CHUK_INHIBITED,-1,polyubiquitination
+DAB2IP,KIT_INHIBITED,-1,transcriptional regulation
+CULLIN_1_RBX1_SKP1,CHEK1_INHIBITED,-1,polyubiquitination
+CULLIN_1_RBX1_SKP1,MDM2_INHIBITED,-1,ubiquitination
+STK11,NUAK2,1,phosphorylation
+BMPR1A,BMPR1B,1,binding
+DYRK1A,PLK2,1,phosphorylation
+ESR1,PROLIFERATION,1,NaN
+GSK3B,USF1,1,phosphorylation
+GSK3B,USF2,1,phosphorylation
+PPM1A,PAK1_INHIBITED,-1,dephosphorylation
+MAPK3,RPS6KA3_INHIBITED,-1,phosphorylation
+PRKCD,GRK2,1,phosphorylation
+PTEN,NR5A1_INHIBITED,-1,dephosphorylation
+PPP2CA,ATM_INHIBITED,-1,dephosphorylation
+PPP2CA,FOXO3,1,dephosphorylation
+MAPK3,HSF1_INHIBITED,-1,phosphorylation
+PRKCB,NCF1,1,phosphorylation
+ETS1,APOPTOSIS,1,NaN
+MAPK3,RPS6KA1_INHIBITED,-1,phosphorylation
+PPP2CA,AKT2_INHIBITED,-1,dephosphorylation
+PPP2CA,RAF1,1,dephosphorylation
+PRKCE,PRKD2,1,phosphorylation
+SP1,TGFB1,1,transcriptional regulation
+TGFB1,PAX6_INHIBITED,-1,transcriptional regulation
+PLK3,ATF2,1,phosphorylation
+MAP3K5,MAP2K3,1,phosphorylation
+MAP3K5,MAPK8,1,phosphorylation
+PRKCA,ERBB2_INHIBITED,-1,phosphorylation
+MAPKAPK2,POU5F1_INHIBITED,-1,phosphorylation
+PPP2CA,MAP3K7_INHIBITED,-1,dephosphorylation
+PRKAA1,CTBP1_INHIBITED,-1,phosphorylation
+PRKAA1,NFE2L2,1,phosphorylation
+PP2CA_R1A_BD,PDPK1_INHIBITED,-1,dephosphorylation
+PPP2CA,PP2CA_R1A_BD,1,binding
+MAP2K7,MAPK8,1,phosphorylation
+FOXO3,AUTOPHAGY_INHIBITED,-1,NaN
+BMP7,ACVR2A,1,binding
+PPP2R5D,RAF1,1,binding
+BMP7,ACVR2B,1,binding
+MTOR,ESR1,1,phosphorylation
+PTPN11,ERBB2_INHIBITED,-1,dephosphorylation
+PIM3,MYC,1,phosphorylation
+CSNK2A2,MYCN,1,phosphorylation
+LATS1,APOPTOSIS,1,NaN
+LATS1,RAF1,1,phosphorylation
+PLK3,PTEN,1,phosphorylation
+PPP1CA,MECOM_INHIBITED,-1,dephosphorylation
+FGR,RIPK2_INHIBITED,-1,phosphorylation
+BMPR1A,SMAD1_4,1,phosphorylation
+CSNK1D,CDK5,1,phosphorylation
+MAPK3,GAB2,1,phosphorylation
+MAPK3,PAK1_INHIBITED,-1,phosphorylation
+PRKCA,CSNK1D,1,phosphorylation
+MAPK8,NFATC2_INHIBITED,-1,phosphorylation
+HSP90AA1,AR,1,binding
+HSP90AA1,TGFBR1,1,binding
+TRAF2,APOPTOSIS,1,NaN
+MAP2K3,DYRK1B,1,phosphorylation
+CAMK2B,STAT1,1,phosphorylation
+ESR1,PI3K_INHIBITED,-1,binding
+ROCK1,LIMK2,1,phosphorylation
+SMAD1_4,BMP7,1,transcriptional regulation
+PPM1A,CDK9_INHIBITED,-1,dephosphorylation
+FLT3,PTPN6_INHIBITED,-1,transcriptional regulation
+STAT5A,PROLIFERATION,1,NaN
+MAPK3,ARHGEF2_INHIBITED,-1,phosphorylation
+MAPK3,STK11_INHIBITED,-1,phosphorylation
+RELA,TRAF2,1,transcriptional regulation
+ROCK1,MAPK8,1,phosphorylation
+PPP1CA,NEK2_INHIBITED,-1,dephosphorylation
+PRKACA,AMPK_INHIBITED,-1,phosphorylation
+PRKAA1,EEF2K_INHIBITED,-1,phosphorylation
+PRKACA,RELA_INHIBITED,-1,phosphorylation
+PPP2CA,MAPK15_INHIBITED,-1,dephosphorylation
+AR,CDKN1A_INHIBITED,-1,transcriptional regulation
+PRKACA,PRKAA2_INHIBITED,-1,phosphorylation
+ELK1,PRKCA,1,transcriptional regulation
+FOXO3,APOPTOSIS,1,NaN
+FAM20C,PCSK7,1,phosphorylation
+GSK3B,CAMKK2_INHIBITED,-1,phosphorylation
+GSK3B,CDX2_INHIBITED,-1,phosphorylation
+GSK3B,CIITA,1,phosphorylation
+GSK3B,MYC,1,phosphorylation
+GSK3B,NFATC2_INHIBITED,-1,phosphorylation
+PTEN,PPM1A,1,binding
+MAPK3,CIC_INHIBITED,-1,phosphorylation
+MAPK3,CDKN1A_INHIBITED,-1,phosphorylation
+CAMKK1,PRKAA1,1,phosphorylation
+PCSK7,ATF6,1,phosphorylation
+PCSK7,PPP2CA,1,phosphorylation
+PPP2CA,CHEK1_INHIBITED,-1,dephosphorylation
+PPP2CA,MAPK1_INHIBITED,-1,dephosphorylation
+PRKAA1,EEF2K,1,phosphorylation
+PPP2CA,SP1,1,dephosphorylation
+MYC,CDKN1A_INHIBITED,-1,transcriptional regulation
+PRKAA1,FOXO3,1,phosphorylation
+PRKAA1,PRKAB1,1,phosphorylation
+PRKACA,SLK,1,phosphorylation
+PTPN11,PROLIFERATION,1,NaN
+ATR,ATM_INHIBITED,-1,phosphorylation
