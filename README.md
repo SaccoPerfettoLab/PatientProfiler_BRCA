@@ -12,12 +12,11 @@ In summary, our work demonstrates that PatientProfiler is a tool for patient-spe
 
 Read the full paper on [biorxive](https://www.biorxiv.org/content/10.1101/2025.01.31.635886v1.full)
 
+<img src="./img/Figure1-2.svg" align="right" width="180" height="200"/>
+
 ## Repository
 
 The repository is divided in Steps:
-
-
-<img src="./img/Figure1-2.svg" align="right" width="180" height="200"/>
 
 
     -   1. [Step1: Harmonization of input data]
