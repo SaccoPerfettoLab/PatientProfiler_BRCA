@@ -1,0 +1,203 @@
+---
+title: 'Step 1: Harmonization of input data'
+output: html_document
+date: "2025-03-05"
+---
+
+```{r setup, include=FALSE, eval=TRUE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+source('0.libraries.R')
+```
+
+
+## Retrieve mutations' functional impact 
+
+
+The mutations dataframe (somatic_mutation_dataframe.tsv) was prepared for subsequent annotation using MafAnnotator from OncoKB, as described here: https://github.com/oncokb/oncokb-annotator#oncokb-api. A
+fter annotation, the processed mutation file was reimported and transformed into a 
+gene-mutation matrix (Brca_mutations.tsv).
+ 
+
+
+```{r mutations, eval=FALSE}
+
+# Load and preprocess the somatic mutation file for OncoKB annotation
+somatic_mutations <- read_tsv("somatic_mutation_dataframe.tsv") %>%
+  t() %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Tumor_Sample_Barcode") %>%
+  slice(-1) %>%  
+  setNames(c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "HGVSp_Short")) %>%
+  relocate(Hugo_Symbol, Variant_Classification, Tumor_Sample_Barcode, HGVSp_Short) %>%
+  mutate(HGVSp = HGVSp_Short)  
+
+write_delim(somatic_mutations, "somatic_mutation_3_maf.txt", delim = "\t", col_names = TRUE)
+
+
+
+# Load the OncoKB-annotated mutation file and clinical data
+somatic_mutations_annotated <- read_tsv("somatic_mutation_3_annotated_maf.txt")
+clinical_dataframe <- read_tsv("clinical_dataframe.tsv")
+
+# Process the clinical dataframe: transpose and extract relevant columns
+full_clinical_data <- clinical_dataframe %>%
+  column_to_rownames(var = "Name") %>%
+  t() %>%
+  as.data.frame() %>%
+  select(5, 8) %>%  
+  rownames_to_column(var = "Patient_ID") %>%
+  relocate(Patient_ID) %>%
+  select(-2)  
+
+# Process somatic mutations and extract Patient ID
+somatic_mutations_processed <- somatic_mutations_annotated %>%
+  mutate(Patient_ID = substr(Tumor_Sample_Barcode, 1, 9) %>% str_remove("\\.")) %>%
+  relocate(Patient_ID)
+
+# Merge mutations with clinical data
+mutations_clinical_merged <- left_join(somatic_mutations_processed, full_clinical_data, by = "Patient_ID")
+
+# Filter for oncogenic mutations
+oncogenic_mutations <- mutations_clinical_merged %>%
+  filter(ONCOGENIC %in% c("Oncogenic", "Likely Oncogenic"))
+
+# Create gene-mutation matrix
+genes <- unique(oncogenic_mutations$Hugo_Symbol)
+patients <- unique(oncogenic_mutations$Patient_ID)
+
+# Initialize matrix with 0
+genes_matrix <- matrix(0, nrow = length(patients), ncol = length(genes), 
+                       dimnames = list(patients, genes))
+
+
+
+# Map values directly onto the matrix without using a nested for-loop
+oncogenic_mutations %>%
+  mutate(value = ifelse(MUTATION_EFFECT %in% c("Gain-of-function", "Likely Gain-of-function"), 1, -1)) %>%
+  rowwise() %>%
+  mutate(genes_matrix[Patient_ID, Hugo_Symbol] <<- value)
+
+# Convert to dataframe and save
+matrice_geni <- as.data.frame(genes_matrix) %>%
+  rownames_to_column(var = "Patient_ID")
+
+write_tsv(matrice_geni, "Brca_mutations.tsv")
+
+```
+
+
+
+## PatientProfiler Step 1: Harmonization of input data 
+
+In this first step, we processed the input breast cancer data (transcriptomics, proteomics, and phosphoproteomics) through parsing, filtering, imputation, quality control, and z-scoring.
+
+```{r Step1, eval=FALSE}
+
+transcriptomics_data <- read_tsv("Brca_transc.tsv") 
+transcriptomics_data <- transcriptomics_data %>% dplyr::rename(gene_name = Name)
+
+proteomics_data <- read_tsv("Brca_prot.tsv") 
+proteomics_data <- proteomics_data %>% dplyr::rename(gene_name = Name) %>% select(-Database_ID)
+
+phosphoproteomics_data <- read_tsv("Brca_phospho.tsv")  
+phosphoproteomics_data <-phosphoproteomics_data %>% dplyr::rename(gene_name = Name) %>% select(-Database_ID)
+
+
+omics_update(
+  df_tr = transcriptomics_data,   
+  df_pr = proteomics_data,   
+  df_ph = phosphoproteomics_data,  
+  threshold = 80,
+  sw_len = 7,  
+  pep_col_name = "Peptide",
+  imp_method = "norm",   
+  zscore = TRUE,   
+  zmethod = "column",   
+  metric = "median",
+  output_dir = './'
+)
+
+```
+
+
+
+## Expression level of known biomarkers
+
+Protein expression level of known biomarkers in different subtypes, after data manipulation (Step1) (ESR1: estrogen receptor, PGR: progesterone receptor, ERBB2/HER2: human epidermal growth factor receptor 2, TOP2A: proliferative biomarker)
+
+
+The result of this analysis is reported in **Figure 2F.**
+
+
+```{r Expression level of known biomarkers, eval = TRUE}
+
+
+# Load clinical data
+clinical_dataframe <- read_tsv("clinical_dataframe.tsv") %>%
+  column_to_rownames("Name") %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::select(Stage, NMF.Cluster) %>%
+  mutate(patient_ID = rownames(.))
+
+#Load proteomics
+proteomics <- read_csv("Proteomics_updated.tsv") %>%
+  select(-1)
+data_long_proteo <- gather(proteomics, patient_ID, z_score, CPT000814:X22BR006, factor_key = TRUE)
+
+# Merge clinical and proteomics
+table_summary_proteo <- merge(clinical_dataframe, data_long_proteo, by = "patient_ID") 
+
+# Plotting setup
+NMF.Cluster <- c("HER2-I", "LumA-I", "LumB-I", "Basal-I")
+my_colors <- c("Basal-I" = "brown", "HER2-I" = "darkgoldenrod", 
+               "LumB-I" = "chartreuse4", "LumA-I" = "deepskyblue4")
+
+known_biomarkers <- c("ESR1", "PGR", "ERBB2", "TOP2A")
+plot_list <- list()
+
+# Loop through biomarkers
+for (gene_i in known_biomarkers) {
+  cat("Processing:", gene_i, "\n")
+  
+  table_summary_gene <- table_summary_proteo %>% filter(gene_name == gene_i)
+  
+  # ANOVA and post-hoc Tukey test
+  res_aov <- aov(z_score ~ NMF.Cluster, data = table_summary_gene)
+  if (summary(res_aov)[[1]][["Pr(>F)"]][1] < 0.05) {
+    tukey_results <- TukeyHSD(res_aov)$NMF.Cluster %>%
+      as_tibble() %>%
+      mutate(Signif = case_when(`p adj` < 0.001 ~ "***",
+                                `p adj` < 0.01 ~ "**",
+                                `p adj` < 0.05 ~ "*",
+                                TRUE ~ "-"))
+    
+    # Plot
+    plot_list[[gene_i]] <- ggplot(table_summary_gene, aes(x = NMF.Cluster, y = z_score, fill = NMF.Cluster)) +
+      ggtitle(gene_i) +
+      geom_boxplot() +
+      scale_fill_manual(values = my_colors) +
+      theme_classic() +
+      geom_signif(comparisons = list(c("Basal-I", "HER2-I"),
+                                     c("HER2-I", "LumA-I"),
+                                     c("LumA-I", "LumB-I"),
+                                     c("Basal-I", "LumA-I"),
+                                     c("HER2-I", "LumB-I"),
+                                     c("LumB-I", "Basal-I")),
+                  map_signif_level = FALSE,
+                  annotations = tukey_results$Signif,
+                  y_position = seq(3, 5, length.out = 6))
+  }
+}
+
+if (length(plot_list) > 0) {
+  combined_plots <- plot_grid(plotlist = plot_list, labels = "AUTO", 
+                              nrow = ceiling(length(plot_list) / 2), ncol = 2)
+  combined_plots
+  
+}
+
+
+```
+
