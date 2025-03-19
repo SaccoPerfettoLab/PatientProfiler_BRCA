@@ -389,7 +389,7 @@ for (folder in community_folders) {
   
   if (file.exists(patient_file)) {
     patient_data &lt;- read_tsv(patient_file, col_names = c(&quot;patient_ID&quot;))
-    patient_data$community &lt;- basename(folder)  # Aggiungi la comunità di origine
+    patient_data$community &lt;- basename(folder)  
     patients_list[[length(patients_list) + 1]] &lt;- patient_data
   }
 }
@@ -410,10 +410,9 @@ clinical_dataframe.T$patient_ID &lt;- rownames(clinical_dataframe.T)
 # Merge 
 patients_cluster &lt;- left_join(patients_cluster, clinical_dataframe.T, by = &quot;patient_ID&quot;)
 
-# Define colors f
+# Define colors for Subtypes
 mycols &lt;- c(&quot;Basal-I&quot; = &quot;brown&quot;, &quot;HER2-I&quot; = &quot;darkgoldenrod&quot;, &quot;LumA-I&quot; = &quot;deepskyblue4&quot;, &quot;LumB-I&quot; = &quot;chartreuse4&quot;)
 
-# Loop through unique clusters and generate pie charts
 # Loop through unique clusters and generate pie charts
 for (cluster_id in unique(patients_cluster$community)) {
   
