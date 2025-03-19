@@ -17,7 +17,7 @@ Read the full paper on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.01
 The repository is divided in Steps:
 
 
-1.  [Step1: Harmonization of input data]
+1.  [Step1: Harmonization of input data](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step1/Step1.html)
 
 2.  [Step2: Protein activity inference](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step2/Step2.html)
 
