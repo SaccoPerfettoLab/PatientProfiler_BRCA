@@ -21,7 +21,7 @@ The repository is divided in Steps:
 
 2.  [Step2: Protein activity inference](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step2/Step2.html)
 
-3.  [Step3: Generation of mechanistic models]
+3.  [Step3: Generation of mechanistic models](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step3/Step3.html)
 
 4.  [Step4: Network-based startification](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step4.html)
 
