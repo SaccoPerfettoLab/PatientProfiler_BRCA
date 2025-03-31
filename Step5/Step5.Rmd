@@ -172,9 +172,15 @@ The result of this analysis is reported in **Figure 5B.**
 # =======================================
 
 # Load transcriptomics data
- url <- "http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv"
-      response <- httr::GET(url)
-      tras <- readr::read_tsv(content(response, "text"))
+url <- "http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv"
+file_path <- tempfile(fileext = ".tsv")
+response <- httr::GET(url, httr::write_disk(file_path, overwrite = TRUE))
+if (httr::http_status(response)$category == "Success") {
+  tras <- utils::read.delim(file_path, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+} else {
+  stop("Error:", httr::http_status(response)$message)
+}
+
 
 # Compute the percentage of zeros per gene
 percent_zeros <- apply(tras[, -1], 1, function(row) {
@@ -439,9 +445,14 @@ for (analysis_name in analysis_name_list) {
                                         leadingEdge = character())
   
   # Load transcriptomics data and compute mean expression for each gene
-   url_zscored <- "http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv"
-      response <- httr::GET(url_zscored)
-      omic_CPTAC <- readr::read_tsv(content(response, "text"))
+  url <- "http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA_zscored.tsv"
+  file_path <- tempfile(fileext = ".tsv")
+  response <- httr::GET(url, httr::write_disk(file_path, overwrite = TRUE))
+  if (httr::http_status(response)$category == "Success") {
+    omic_CPTAC <- utils::read.delim(file_path, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+  } else {
+    stop("Error:", httr::http_status(response)$message)
+  }
   omic_CPTAC <- aggregate(omic_CPTAC[, -1], by = list(Name = omic_CPTAC$gene_name), mean)
   
   # Process each patient

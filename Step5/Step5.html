@@ -369,9 +369,15 @@ Signatures1-7. The result of this analysis is reported in <strong>Figure
 # =======================================
 
 # Load transcriptomics data
- url &lt;- &quot;http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv&quot;
-      response &lt;- httr::GET(url)
-      tras &lt;- readr::read_tsv(content(response, &quot;text&quot;))
+url &lt;- &quot;http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv&quot;
+file_path &lt;- tempfile(fileext = &quot;.tsv&quot;)
+response &lt;- httr::GET(url, httr::write_disk(file_path, overwrite = TRUE))
+if (httr::http_status(response)$category == &quot;Success&quot;) {
+  tras &lt;- utils::read.delim(file_path, sep = &quot;\t&quot;, header = TRUE, stringsAsFactors = FALSE)
+} else {
+  stop(&quot;Error:&quot;, httr::http_status(response)$message)
+}
+
 
 # Compute the percentage of zeros per gene
 percent_zeros &lt;- apply(tras[, -1], 1, function(row) {
@@ -636,9 +642,14 @@ for (analysis_name in analysis_name_list) {
                                         leadingEdge = character())
   
   # Load transcriptomics data and compute mean expression for each gene
-   url_zscored &lt;- &quot;http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv&quot;
-      response &lt;- httr::GET(url_zscored)
-      omic_CPTAC &lt;- readr::read_tsv(content(response, &quot;text&quot;))
+  url &lt;- &quot;http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA_zscored.tsv&quot;
+  file_path &lt;- tempfile(fileext = &quot;.tsv&quot;)
+  response &lt;- httr::GET(url, httr::write_disk(file_path, overwrite = TRUE))
+  if (httr::http_status(response)$category == &quot;Success&quot;) {
+    omic_CPTAC &lt;- utils::read.delim(file_path, sep = &quot;\t&quot;, header = TRUE, stringsAsFactors = FALSE)
+  } else {
+    stop(&quot;Error:&quot;, httr::http_status(response)$message)
+  }
   omic_CPTAC &lt;- aggregate(omic_CPTAC[, -1], by = list(Name = omic_CPTAC$gene_name), mean)
   
   # Process each patient
