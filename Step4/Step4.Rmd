@@ -115,6 +115,20 @@ for (cluster_id in unique(patients_cluster$community)) {
 
 ![](images/4B.svg)
 
+Visualize Community 4 in Cytoscape. 
+The result is reported in **Figure S11.** and **Figure 5A.**
+
+
+```{r visualize community, eval = FALSE}
+
+visualize_community(community_4)
+
+```
+![](images/S11.svg)
+
+
+
+
 
 
 
