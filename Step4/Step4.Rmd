@@ -80,6 +80,10 @@ clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)
 # Merge 
 patients_cluster <- left_join(patients_cluster, clinical_dataframe.T, by = "patient_ID")
 
+
+write_tsv(patients_cluster[, -3], "patients_cluster.tsv")
+
+
 # Define colors for Subtypes
 mycols <- c("Basal-I" = "brown", "HER2-I" = "darkgoldenrod", "LumA-I" = "deepskyblue4", "LumB-I" = "chartreuse4")
 
