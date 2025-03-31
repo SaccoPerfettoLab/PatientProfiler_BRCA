@@ -1,0 +1,734 @@
+---
+title: "Step5"
+output: html_document
+date: "2025-03-13"
+---
+
+```{r setup, include=FALSE, eval=TRUE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+source('0.libraries.R')
+```
+
+
+## Download and save TCGA clinical and transcriptomic data
+
+```{r download TCGA data, include = FALSE, eval = FALSE}
+# ===========================
+# 1. DOWNLOAD CLINICAL DATA
+# ===========================
+
+# Retrieve project summary
+gdcprojects <- getGDCprojects()
+getProjectSummary("TCGA-BRCA")
+
+# Query and download clinical data
+query_TCGA <- GDCquery(
+  project = "TCGA-BRCA",
+  data.category = "Clinical"
+)
+GDCdownload(query_TCGA)
+
+# Load clinical data
+file_txt <- "nationwidechildrens.org_clinical_patient_brca.txt"
+clinical <- read.delim(file_txt, sep = "\t", stringsAsFactors = FALSE, skip = 2) # Skip first two rows
+
+# Rename patient ID column
+colnames(clinical)[colnames(clinical) == "bcr_patient_barcode"] <- "patient_ID"
+
+# Save the cleaned clinical data
+write_tsv(clinical, "clinical_TCGA.tsv")
+
+# ===============================
+# 2. DOWNLOAD TRANSCRIPTOMICS DATA
+# ===============================
+
+# Query and download transcriptomic data
+query_TCGA <- GDCquery(
+  project = "TCGA-BRCA",
+  data.category = "Transcriptome Profiling",
+  experimental.strategy = "RNA-Seq",
+  sample.type = "Primary Tumor",
+  access = "open"
+)
+new_query <- getResults(query_TCGA)
+GDCdownload(query_TCGA)
+
+# ===============================
+# 3. PROCESS TRANSCRIPTOMICS DATA
+# ===============================
+
+base_dir <- "./"
+
+# Loop through all transcriptomics files
+for (i in seq_len(nrow(new_query))) {
+  
+  id_value <- new_query[i, "id"]
+  file_name <- new_query[i, "file_name"]
+  file_path <- file.path(base_dir, id_value, file_name)
+  
+  if (file.exists(file_path)) {
+    file_content <- read.table(file_path, sep = "\t", header = TRUE)
+    
+    # Ensure the reference variable exists
+    if (exists("aaa_filtered")) {
+      cases_value <- aaa_filtered[i, "cases"]
+      
+      # Rename the "unstranded" column with patient ID
+      colnames(file_content)[colnames(file_content) == "unstranded"] <- as.character(cases_value)
+      
+      # Select only relevant columns
+      file_content <- file_content[, c("gene_name", as.character(cases_value))]
+      
+      # Save the processed file
+      write_tsv(file_content, file.path(base_dir, paste0(cases_value, ".tsv")))
+    }
+  } else {
+    message("File not found: ", file_path)
+  }
+}
+
+# ===================================
+# 4. STANDARDIZE PATIENT ID FORMAT
+# ===================================
+
+# Iterate over transcriptomics files to clean patient IDs
+for (new_file_name in list.files(base_dir, pattern = "\\.tsv$")) {
+  new_file_path <- file.path(base_dir, new_file_name)
+  file_content <- read.table(new_file_path, sep = "\t", header = TRUE)
+  
+  # Modify the second column name to match clinical format (TCGA-XX-XXXX)
+  second_col_name <- colnames(file_content)[2]
+  modified_col_name <- sub("^(([^\\.]*\\.){2}[^\\.]*).*", "\\1", second_col_name)
+  modified_col_name <- gsub("\\.", "-", modified_col_name)
+  
+  colnames(file_content)[2] <- modified_col_name
+  
+  # Save the updated file
+  write_tsv(file_content, new_file_path)
+}
+
+# ==========================================
+# 5. COMBINE ALL PATIENT TRANSCRIPTOMICS DATA
+# ==========================================
+
+combined_df <- data.frame()
+
+# Process all transcriptomics files and merge them
+for (new_file_name in list.files(base_dir, pattern = "\\.tsv$")) {
+  new_file_path <- file.path(base_dir, new_file_name)
+  file_content <- read.table(new_file_path, sep = "\t", header = TRUE)
+  
+  # Remove rows with missing gene names
+  file_content <- file_content[file_content$gene_name != "", ]
+  
+  # Clean gene_name column (remove everything after the first dot)
+  file_content$gene_name <- sub("\\..*", "", file_content$gene_name)
+  
+  # Ensure patient ID format consistency
+  second_col_name <- colnames(file_content)[2]
+  modified_col_name <- gsub("\\.", "-", second_col_name)
+  colnames(file_content)[2] <- modified_col_name
+  
+  # Aggregate duplicate genes by calculating their mean expression
+  file_content <- aggregate(. ~ gene_name, data = file_content, FUN = mean)
+  
+  # Handle duplicate patient entries (e.g., 01A vs 01B samples)
+  if (exists("combined_df") && modified_col_name %in% colnames(combined_df)) {
+    combined_df <- merge(combined_df, file_content, by = "gene_name", suffixes = c("", "_y"))
+    
+    # Average duplicate samples
+    combined_df[, modified_col_name] <- rowMeans(
+      combined_df[, c(modified_col_name, paste0(modified_col_name, "_y"))], na.rm = TRUE
+    )
+    
+    # Remove redundant columns
+    combined_df <- combined_df[, -grep("_y$", colnames(combined_df))]
+    
+  } else {
+    # Merge if no existing data
+    combined_df <- if (nrow(combined_df) == 0) file_content else merge(combined_df, file_content, by = "gene_name")
+  }
+}
+
+# Save the final transcriptomics dataset
+write_tsv(combined_df, "transcriptomics_TCGA.tsv")
+
+
+```
+
+
+## Survival analysis within TCGA
+
+Kaplan-Meier plot showing survival probability of Breast Cancer patients from The Cancer Genome Atlas (TCGA) stratified in subgroups by Signatures1-7. 
+The result of this analysis is reported in **Figure 5B.**
+
+
+
+```{r KM, eval = FALSE}
+
+# =======================================
+# 1. PROCESS TCGA TRANSCRIPTOMICS DATA
+# =======================================
+
+# Load transcriptomics data
+ url <- "http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv"
+      response <- httr::GET(url)
+      tras <- readr::read_tsv(content(response, "text"))
+
+# Compute the percentage of zeros per gene
+percent_zeros <- apply(tras[, -1], 1, function(row) {
+  zeros <- sum(row == 0 | row < 1e-7)  # Count true zeros and near-zero values
+  return((zeros / length(row)) * 100)
+})
+
+# Filter genes with fewer than 80% zeros
+threshold <- 80  
+filtered_df <- tras[percent_zeros < threshold, ]
+
+# Convert all expression values to numeric
+expr_df <- filtered_df[, -1] %>% mutate_all(as.numeric)
+
+# Convert to matrix and apply log transformation (log(x+1) to avoid log(0))
+expr_matrix <- as.matrix(expr_df)
+expr_matrix_log <- log(expr_matrix + 1)
+
+# Compute Z-score normalization using median
+expr_df_log_zscore <- compute_zscore(expr_matrix_log, by = "column", metric = "median") %>% as.data.frame()
+
+# Add gene names back to the dataset
+expr_df_log_zscore <- cbind(gene_name = filtered_df$gene_name, expr_df_log_zscore)
+
+# Remove unwanted rows (first two, assuming metadata)
+tras_zscore <- expr_df_log_zscore[-(1:2), ]
+
+write_tsv(tras_zscore, "transcriptomics_TCGA_zscored.tsv")
+
+
+# ===========================
+# 2. PROCESS CLINICAL DATA
+# ===========================
+
+# Load clinical data
+clinic <- read_tsv("clinical_TCGA.tsv") 
+
+# Remove first two rows (assuming they contain metadata)
+clinic <- clinic[-(1:2), ]
+
+# Create a dataframe with patient survival information
+df <- data.frame(
+  patient_ID = clinic$patient_ID,
+  serial_time = ifelse(is.na(clinic$death_days_to), clinic$last_contact_days_to, clinic$death_days_to),
+  status = 0,  # Initialize status as 0 (alive)
+  group = NA
+)
+
+# Order by survival time
+df <- df[order(df$serial_time), ]
+
+# Convert death days to numeric
+clinic$death_days_to <- as.numeric(clinic$death_days_to)
+
+# Update status: 1 if the patient has died, 0 otherwise
+for (i in seq_along(df$patient_ID)) {
+  patient_ID <- df$patient_ID[i]
+  death_days_to <- clinic$death_days_to[clinic$patient_ID == patient_ID]
+  
+  if (!all(is.na(death_days_to))) {
+    df$status[i] <- 1
+  }
+}
+
+
+
+# ===========================
+# 3. RETAIN JUST CODING GENES
+# ===========================
+
+
+Transcriptomics_cptac <- read_tsv("../Step1/Transcriptomics_updated.tsv")
+coding_genes <- AnnotationDbi::select(
+  org.Hs.eg.db,
+  keys = keys(org.Hs.eg.db, keytype = "ENSEMBL"),
+  columns = c("ENSEMBL", "SYMBOL"),
+  keytype = "ENSEMBL"
+)
+Transcriptomics_cptac <- Transcriptomics_cptac %>% filter(gene_name %in% coding_genes$SYMBOL)
+write_tsv(Transcriptomics_cptac, "Transcriptomics_updated_coding.tsv")
+
+# ===========================
+# 4. EXTRACT SIGNATURES
+#===========================
+
+# Load transcriptomics data
+tras <- read_tsv("transcriptomics_TCGA.tsv")
+
+# Compute the percentage of zeros per gene
+percent_zeros <- apply(tras[, -1], 1, function(row) {
+  zeros <- sum(row == 0 | row < 1e-7)  # Count true zeros and near-zero values
+  return((zeros / length(row)) * 100)
+})
+
+# Filter genes with fewer than 80% zeros
+threshold <- 80  
+filtered_df <- tras[percent_zeros < threshold, ]
+
+# Convert all expression values to numeric
+expr_df <- filtered_df[, -1] %>% mutate_all(as.numeric)
+
+# Convert to matrix and apply log transformation (log(x+1) to avoid log(0))
+expr_matrix <- as.matrix(expr_df)
+expr_matrix_log <- log(expr_matrix + 1)
+
+# Compute Z-score normalization using median
+expr_df_log_zscore <- compute_zscore(expr_matrix_log, by = "column", metric = "median") %>% as.data.frame()
+
+# Add gene names back to the dataset
+expr_df_log_zscore <- cbind(gene_name = filtered_df$gene_name, expr_df_log_zscore)
+
+# Remove unwanted rows (first two, assuming metadata)
+tras_zscore <- expr_df_log_zscore[-(1:2), ]
+
+write_tsv(tras_zscore, "transcriptomics_TCGA_zscored.tsv")
+
+
+# ===========================
+# 2. PROCESS CLINICAL DATA
+# ===========================
+
+# Load clinical data
+clinic <- read_tsv("clinical_TCGA.tsv") 
+
+# Remove first two rows (assuming they contain metadata)
+clinic <- clinic[-(1:2), ]
+
+# Create a dataframe with patient survival information
+df <- data.frame(
+  patient_ID = clinic$patient_ID,
+  serial_time = ifelse(is.na(clinic$death_days_to), clinic$last_contact_days_to, clinic$death_days_to),
+  status = 0,  # Initialize status as 0 (alive)
+  group = NA
+)
+
+# Order by survival time
+df <- df[order(df$serial_time), ]
+
+# Convert death days to numeric
+clinic$death_days_to <- as.numeric(clinic$death_days_to)
+
+# Update status: 1 if the patient has died, 0 otherwise
+for (i in seq_along(df$patient_ID)) {
+  patient_ID <- df$patient_ID[i]
+  death_days_to <- clinic$death_days_to[clinic$patient_ID == patient_ID]
+  
+  if (!all(is.na(death_days_to))) {
+    df$status[i] <- 1
+  }
+}
+
+
+
+# ===========================
+# 3. RETAIN JUST CODING GENES
+# ===========================
+
+
+Transcriptomics_cptac <- read_tsv("../Step1/Transcriptomics_updated.tsv")
+coding_genes <- AnnotationDbi::select(
+  org.Hs.eg.db,
+  keys = keys(org.Hs.eg.db, keytype = "ENSEMBL"),
+  columns = c("ENSEMBL", "SYMBOL"),
+  keytype = "ENSEMBL"
+)
+Transcriptomics_cptac <- Transcriptomics_cptac %>% filter(gene_name %in% coding_genes$SYMBOL)
+write_tsv(Transcriptomics_cptac, "Transcriptomics_updated_CPTAC_coding.tsv")
+
+# ===========================
+# 4. EXTRACT SIGNATURES
+#===========================
+
+#Run for communities 2, 3,4 , 7
+extract_signatures(base_path = "../Step4/output_communities/",        
+                          transcriptomics_file = "./Transcriptomics_updated_CPTAC_coding.tsv", 
+                          output_dir = "./Run_for_communities_2_3_4_7",
+                          diff_thres = 0.7)
+
+#Run for communities 1, 5, 6
+extract_signatures(base_path = "../Step4/output_communities/",        
+                   transcriptomics_file = "./Transcriptomics_updated_CPTAC_coding.tsv", 
+                   output_dir = "./Run_for_communities_1_5_6",
+                   diff_thres = 0.5)
+
+# Define source directories
+parent_dir_1 <- "./Run_for_communities_1_5_6"
+parent_dir_2 <- "./Run_for_communities_2_3_4_7"
+
+dir_1 <- file.path(parent_dir_1, "Signatures")
+dir_2 <- file.path(parent_dir_2, "Signatures")
+
+# Define the files to extract
+files_1 <- c("signature_community_1.tsv", "signature_community_5.tsv", "signature_community_6.tsv")
+files_2 <- c("signature_community_2.tsv", "signature_community_3.tsv", "signature_community_4.tsv", "signature_community_7.tsv")
+
+# Define the destination directory
+dest_dir <- "./"  
+
+# Function to move files 
+move_files <- function(file_list, source_dir, destination_dir) {
+  for (file in file_list) {
+    source_path <- file.path(source_dir, file)
+    dest_path <- file.path(destination_dir, file)
+    
+    # Check if the file exists before moving
+    if (file_exists(source_path)) {
+      file_move(source_path, dest_path)
+      cat("Moved:", file, "to", destination_dir, "\n")
+    } else {
+      cat("File not found:", file, "\n")
+    }
+  }
+}
+
+# Move the required files
+move_files(files_1, dir_1, dest_dir)
+move_files(files_2, dir_2, dest_dir)
+
+# Delete the directories, including their parent folders
+if (dir_exists(parent_dir_1)) {
+  dir_delete(parent_dir_1)
+  cat("Deleted directory:", parent_dir_1, "\n")
+}
+if (dir_exists(parent_dir_2)) {
+  dir_delete(parent_dir_2)
+  cat("Deleted directory:", parent_dir_2, "\n")
+}
+
+
+# ===========================
+# 5. ENRICHMENT ANALYSIS ON TCGA
+#===========================
+
+
+set.seed(1234)
+
+# Load cluster signatures from Excel files
+clusters <- paste0("signature_community_", 1:7, ".tsv")
+cluster_signatures <- lapply(clusters, function(file) unique(read_tsv(file)$gene_name))
+names(cluster_signatures) <- paste0("CL", 1:7)
+
+# Create a combined list of unique genes across all clusters
+CL <- unique(unlist(cluster_signatures))
+
+# Initialize the global enrichment results table
+global_table_enrichment_final <- data.frame(patient_id = character(),
+                                            pathway = character(),
+                                            analysis_type = character())
+
+# List of analysis types
+analysis_name_list <- c("transcriptomics")
+
+
+# Iterate over each analysis type
+for (analysis_name in analysis_name_list) {
+  
+  # Initialize the dataframe to store enrichment results for all patients
+  global_table_enrichment <- data.frame(patient_id = character(),
+                                        ES = numeric(),
+                                        NES = numeric(),
+                                        size = integer(),
+                                        leadingEdge = character())
+  
+  # Load transcriptomics data and compute mean expression for each gene
+   url_zscored <- "http://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv"
+      response <- httr::GET(url_zscored)
+      omic_CPTAC <- readr::read_tsv(content(response, "text"))
+  omic_CPTAC <- aggregate(omic_CPTAC[, -1], by = list(Name = omic_CPTAC$gene_name), mean)
+  
+  # Process each patient
+  for (i in 2:ncol(omic_CPTAC)) {
+    patient_id <- colnames(omic_CPTAC)[i]
+    
+    # Seleziona dati per il paziente attuale ed elimina NA
+    omic_CPTAC_i <- omic_CPTAC[, c(1, i)] %>% drop_na()
+    
+    # Ordina i geni in base all'espressione (decrescente)
+    omic_CPTAC_i_or <- omic_CPTAC_i %>% dplyr::arrange(desc(.[[2]]))
+    rownames(omic_CPTAC_i_or) <- omic_CPTAC_i_or$Name
+    gene_expression_list <- setNames(omic_CPTAC_i_or[[2]], rownames(omic_CPTAC_i_or))
+    
+    # Esegui fgsea
+    results <- fgseaMultilevel(cluster_signatures, gene_expression_list, scoreType = 'std')
+    results$patient_id <- patient_id
+    
+    # Converti `leadingEdge` da lista a stringa per evitare errori in bind_rows()
+    results$leadingEdge <- sapply(results$leadingEdge, function(x) paste(x, collapse = ","))
+    
+    # Unisci i risultati
+    global_table_enrichment <- bind_rows(global_table_enrichment, results)
+  }}
+
+
+# Save the enrichment results to an Excel file
+global_table_enrichment <- global_table_enrichment %>%
+  select(pathway, NES, padj, patient_id) 
+
+write_xlsx(global_table_enrichment, paste0(analysis_name, "_signature_enrichment_communities_tcga.xlsx"))
+
+# ===========================
+# 6. KM
+#===========================
+
+
+# Filter significant enrichment results
+global_table_enrichment_sign <- global_table_enrichment %>%
+  group_by(patient_id) %>%
+  filter((pathway %in% c("CL2", "CL3", "CL4", "CL7") & NES > 0) | 
+           (pathway %in% c("CL1", "CL5", "CL6") & NES > 1)) %>%
+  slice_max(order_by = NES, n = 1) %>%
+  ungroup() %>%
+  filter(padj <= 0.01)
+
+# Create the `all_data` list using `map()`
+all_data <- map(unique(global_table_enrichment_sign$pathway), function(community) {
+  subset_trans_long <- dplyr::filter(global_table_enrichment_sign, pathway == community)
+  current_df <- dplyr::filter(df, patient_ID %in% subset_trans_long$patient_id)
+  
+  # Find common patients in both datasets
+  common_rows <- intersect(current_df$patient_ID, subset_trans_long$patient_id)
+  if (length(common_rows) == 0) return(NULL)  # Return NULL if no common rows exist
+  
+  # Filter only common patients and sort
+  current_df_common <- filter(current_df, patient_ID %in% common_rows) %>% arrange(patient_ID)
+  subset_trans_long_common <- dplyr::filter(subset_trans_long, patient_id %in% common_rows) %>% arrange(patient_id)
+  
+  if (nrow(current_df_common) == nrow(subset_trans_long_common)) {
+    current_df_common$group <- subset_trans_long_common$pathway
+    return(current_df_common)
+  } else {
+    warning(paste("Mismatch in row counts for community:", community))
+    return(NULL)
+  }
+}) %>% compact()  # Remove NULL elements
+
+# Combine the data into a single dataframe
+df_totale <- bind_rows(all_data)
+
+# Survival analysis
+surv_obj <- Surv(time = as.numeric(df_totale$serial_time), event = df_totale$status)
+logrank_test <- survdiff(surv_obj ~ group, data = df_totale)
+
+# Compute the Hazard Ratio (HR)
+D <- logrank_test$obs  # Number of observed events
+E <- logrank_test$exp  # Number of expected events
+HR <- (D[1] / D[2]) / (E[1] / E[2])  # HR = (D1/D2) / (E1/E2)
+
+# Compute the adjusted p-value using the BH method
+p_value_logrank <- pchisq(logrank_test$chisq, df = length(logrank_test$n) - 1, lower.tail = FALSE)
+p_value_adj <- p.adjust(p_value_logrank, method = "BH")
+
+# Define a custom color palette
+group_colors <- c("#59BDB2", "#E7DBAE", "#F4A2A4", "#E94587", "#6B2B68")
+
+# Plot survival analysis using `ggsurvplot`
+plot <- ggsurvplot(
+  survfit(surv_obj ~ group, data = df_totale),
+  data = df_totale,
+  risk.table = TRUE,
+  pval = TRUE,
+  palette = group_colors
+)
+
+
+```
+
+![](images/5B.svg)
+
+## PHENOPLOT
+
+Activation level (power-log of the PhenoScore) of key hallmark phenotypes in different communities as derived from the mechanistic models.
+The result of this analysis is reported in **Figure 4C.**
+
+```{r phenoplot, eval = FALSE }
+
+
+
+# Load clinical data and extract patient IDs
+clinical_dataframe <- read_tsv("../Step1/clinical_dataframe.tsv")
+rownames(clinical_dataframe) <- clinical_dataframe$Name
+clinical_dataframe.T <- as.data.frame(t(clinical_dataframe))[-1, , drop = FALSE]  # Transpose and remove the first row
+clinical_dataframe.T <- clinical_dataframe.T[, c(5, 8), drop = FALSE]  # Select relevant columns
+clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)  # Assign row names as patient IDs
+pat_names <- clinical_dataframe.T$patient_ID  # Store patient IDs in a variable
+
+# Prepare lists to store nodes and edges
+nodes_list <- list()
+edges_list <- list()
+
+# Iterate through each patient
+for (r in seq_along(pat_names)) {
+  
+  # Read the RDS file for each patient
+  opt1 <- read_rds(paste0('../Step3/Networks_output/Pheno_', as.character(pat_names[r]), ".RDS"))
+  nodes <- opt1$sp_object_phenotypes$nodes_df  # Extract node data
+  edges <- opt1$sp_object_phenotypes$edges_df  # Extract edge data
+  
+  # Add patient information to nodes and edges
+  patient_data <- clinical_dataframe.T[r, ]
+  nodes$patient_ID <- patient_data$patient_ID
+  nodes$NMF.Cluster <- patient_data$NMF.Cluster
+  edges$patient_ID <- patient_data$patient_ID
+  edges$NMF.Cluster <- patient_data$NMF.Cluster
+  
+  # Store nodes and edges in respective lists
+  nodes_list[[r]] <- nodes
+  edges_list[[r]] <- edges
+}
+
+# Combine all nodes into a single dataframe
+nodes_total <- bind_rows(nodes_list)  # Obtain total nodes
+
+
+######################### GSEA on CPTAC patients
+
+
+set.seed(1234)
+
+# Load cluster signatures from Excel files
+clusters <- paste0("signature_community_", 1:7, ".tsv")
+cluster_signatures <- lapply(clusters, function(file) unique(read_tsv(file)$gene_name))
+names(cluster_signatures) <- paste0("CL", 1:7)
+
+# Create a combined list of unique genes across all clusters
+CL <- unique(unlist(cluster_signatures))
+
+# Initialize the global enrichment results table
+global_table_enrichment_final <- data.frame(patient_id = character(),
+                                            pathway = character(),
+                                            analysis_type = character())
+
+# List of analysis types
+analysis_name_list <- c("transcriptomics")
+
+
+
+# Iterate through each analysis type
+for (analysis_name in analysis_name_list) {
+  
+  # Initialize the dataframe to store enrichment results for all patients
+  global_table_enrichment <- data.frame(patient_id = character(),
+                                        ES = numeric(),
+                                        NES = numeric(),
+                                        size = integer(),
+                                        leadingEdge = character())
+  
+  # Load transcriptomics data and compute the mean expression for each gene
+  omic_CPTAC <- read_tsv("Transcriptomics_updated_CPTAC_coding.tsv")
+  omic_CPTAC <- aggregate(omic_CPTAC[, -1], by = list(Name = omic_CPTAC$gene_name), mean)
+  
+  # Process each patient
+  for (i in 2:ncol(omic_CPTAC)) {
+    patient_id <- colnames(omic_CPTAC)[i]
+    
+    # Select expression data for the current patient and remove NA values
+    omic_CPTAC_i <- omic_CPTAC[, c(1, i)] %>% drop_na()
+    
+    # Sort genes by expression level (descending order)
+    omic_CPTAC_i_or <- omic_CPTAC_i %>% dplyr::arrange(desc(.[[2]]))
+    rownames(omic_CPTAC_i_or) <- omic_CPTAC_i_or$Name
+    gene_expression_list <- setNames(omic_CPTAC_i_or[[2]], rownames(omic_CPTAC_i_or))
+    
+    # Perform Gene Set Enrichment Analysis (GSEA)
+    results <- fgseaMultilevel(cluster_signatures, gene_expression_list, scoreType = 'std')
+    results$patient_id <- patient_id
+    
+    # Convert `leadingEdge` from a list to a string to avoid errors in bind_rows()
+    results$leadingEdge <- sapply(results$leadingEdge, function(x) paste(x, collapse = ","))
+    
+    # Merge results into the global enrichment table
+    global_table_enrichment <- bind_rows(global_table_enrichment, results)
+  }
+}
+
+write_excel(global_table_enrichment, "transcriptomics_signature_enrichment_communities_cptac.xlsx")
+
+
+# Filter and save significant enrichment results
+global_table_enrichment <- global_table_enrichment %>%
+  dplyr::select(pathway, NES, padj, patient_id) 
+
+global_table_enrichment_sign <- global_table_enrichment %>%
+  dplyr::group_by(patient_id) %>%
+  dplyr::filter((pathway %in% c("CL2", "CL3", "CL4", "CL7") & NES > 0) | 
+           (pathway %in% c("CL1", "CL5", "CL6") & NES > 1)) %>%
+  dplyr::slice_max(order_by = NES, n = 1) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(padj <= 0.01)  %>% 
+  dplyr::select(patient_id, pathway) %>% 
+  dplyr::rename(patient_ID = patient_id)
+
+
+# Extract phenotype scores from nodes_total
+NMF <- nodes_total %>%
+  dplyr::filter(method == "phenoscore") %>%
+  dplyr::select(gene_name, final_score, NMF.Cluster, patient_ID) 
+ 
+
+# Merge phenotype scores with enrichment results
+NMF <- NMF %>%
+  dplyr::left_join(global_table_enrichment_sign, by = c("patient_ID")) %>%  
+  dplyr::mutate(pathway = na_if(pathway, "NA"))
+
+
+# Define a function for symmetric log transformation
+symlog <- function(x, base = 2) {
+  ifelse(x > 0, log(x + 1, base), -log(abs(x) + 1, base)) 
+}
+
+
+# Apply transformations and filter data for visualization
+NMF <- NMF %>%
+  filter(!is.na(final_score), !is.na(pathway)) %>%  # Remove missing values
+  filter(!gene_name %in% c("BROWN ADIPOGENESIS", "TELOMERE MAINTENANCE")) %>%  # Exclude specific genes
+  mutate(
+    final_score_transformed = ifelse(
+      gene_name %in% c("IMMORTALITY", "EPITHELIAL_MESENCHYMAL_TRANSITION"),
+      symlog(final_score, base = 2), 
+      log10(abs(final_score) + 1) * sign(final_score)  
+    )
+  )
+
+
+# Generate a jitter-boxplot visualization
+ggplot(NMF, aes(x = gene_name, y = final_score_transformed, fill = pathway)) +
+  geom_jitter(aes(colour = pathway), position = position_dodge(width = 0.75), size = 0.75) +
+  geom_boxplot(alpha = 0.85, outlier.colour = NA) +  # Remove outlier colors
+  scale_color_manual(values = 
+                       c("CL1" = "grey",
+                         "CL2" = "#59BDB2",
+                         "CL3" = "#E7DBAE", 
+                         "CL4" = "#F4A2A4", 
+                         "CL5" = "#E94587", 
+                         "CL6" = "#9CCEE3", 
+                         "CL7" =  "#6B2B68")) +
+  scale_fill_manual(values = c(
+    "CL1" = "grey",
+    "CL2" = "#59BDB2",
+    "CL3" = "#E7DBAE", 
+    "CL4" = "#F4A2A4", 
+    "CL5" = "#E94587", 
+    "CL6" = "#9CCEE3", 
+    "CL7" =  "#6B2B68")) +
+  coord_flip() +
+  theme(
+    axis.line = element_line(colour = "gray51", size = 0.3, linetype = "solid"),
+    axis.text.x = element_text(face = "bold", color = "black", size = 10),
+    axis.text.y = element_text(face = "bold", color = "black", size = 10)
+  ) +
+  xlab("Phenotype") +
+  ylab("Phenotype modulation (power-log scale)") +
+  theme_classic() +
+  ggtitle("Phenoscore NMF (Power-Log Scale)") -> phenoplot  # Save plot to `phenoplot`
+
+```
+
+![](images/4C.svg)
