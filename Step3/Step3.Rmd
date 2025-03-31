@@ -126,7 +126,7 @@ create_network(patient_id = patient_id,
 
 ## FIGURES
 
-Summary of the network size, as shown by the distribution of the number of nodes (top) and edges (bottom) in individual patients, stratified by subtypes. The dashed-red bar indicates the average number of estimated nodes and edges in each subgroup The result of this analysis is reported in **Figure 3B.**
+Summary of the network size, as shown by the distribution of the number of nodes (top) and edges (bottom) in individual patients, stratified by subtypes. The dashed-red bar indicates the average number of estimated nodes and edges in each subgroup. The result of this analysis is reported in **Figure 3B.**
 
 ```{r 3b, include=FALSE, eval = FALSE}
 # Load clinical data and extract patient ids
