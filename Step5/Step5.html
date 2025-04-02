@@ -369,7 +369,7 @@ Signatures1-7. The result of this analysis is reported in <strong>Figure
 # =======================================
 
 # Load transcriptomics data
-url &lt;- &quot;https://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA.tsv&quot;
+url &lt;- &quot;https://perfettolab.bio.uniroma1.it/PerfettoLabData/PatientProfiler/BrcaUseCase/Step5/TCGA/transcriptomics_TCGA.tsv&quot;
 file_path &lt;- tempfile(fileext = &quot;.tsv&quot;)
 response &lt;- httr::GET(url, httr::write_disk(file_path, overwrite = TRUE))
 if (httr::http_status(response)$category == &quot;Success&quot;) {
@@ -642,7 +642,7 @@ for (analysis_name in analysis_name_list) {
                                         leadingEdge = character())
   
   # Load transcriptomics data and compute mean expression for each gene
-  url &lt;- &quot;https://perfettolab.bio.uniroma1.it/Step5/TCGA/transcriptomics_TCGA_zscored.tsv&quot;
+  url &lt;- &quot;https://perfettolab.bio.uniroma1.it/PerfettoLabData/PatientProfiler/BrcaUseCase/Step5/TCGA/transcriptomics_TCGA_zscored.tsv&quot;
   file_path &lt;- tempfile(fileext = &quot;.tsv&quot;)
   response &lt;- httr::GET(url, httr::write_disk(file_path, overwrite = TRUE))
   if (httr::http_status(response)$category == &quot;Success&quot;) {
