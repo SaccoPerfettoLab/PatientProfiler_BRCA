@@ -25,8 +25,9 @@ The repository is divided in Steps:
 
 4.  [Step4: Network-based startification](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step4.html)
 
-5.  [Step5: Identification of biomarkers]
+5.  [Step5: Identification of biomarkers](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step5.html)
 
-6.  [Benchmark]
+  [Benchmark: comparison with other methods to find signatures](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Benchmark.html)
+
 
 <img src="./img/Figure1-2.svg" width="720" height="800"/>
