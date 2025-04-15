@@ -743,3 +743,82 @@ ggplot(NMF, aes(x = gene_name, y = final_score_transformed, fill = pathway)) +
 ```
 
 ![](images/4C.svg)
+
+### Table 3
+This code generates Table 3, which summarizes the molecular subtypes and associated transcriptional signatures for patients in the TCGA and CPTAC datasets.
+
+```{r table3 generation, eval = FALSE}
+
+# Add Subtype
+clinical_tcga <- read_tsv("clinical_TCGA.tsv")
+clinical_tcga <- clinical_tcga[-c(1:2),]
+clinical_tcga <- clinical_tcga %>% dplyr::select(patient_ID, er_status_by_ihc, pr_status_by_ihc, her2_status_by_ihc)
+clinical_tcga$Subtype <- NA
+
+
+clinical_tcga$Subtype[
+  clinical_tcga$er_status_by_ihc == "Negative" &
+  clinical_tcga$pr_status_by_ihc == "Negative" &
+  clinical_tcga$her2_status_by_ihc == "Negative"
+] <- "Basal-I"
+
+
+clinical_tcga$Subtype[
+  clinical_tcga$er_status_by_ihc == "Positive" &
+  clinical_tcga$pr_status_by_ihc == "Positive" &
+  clinical_tcga$her2_status_by_ihc == "Negative"
+] <- "LumA-I"
+
+clinical_tcga$Subtype[
+  clinical_tcga$her2_status_by_ihc == "Positive" &
+  clinical_tcga$er_status_by_ihc %in% c("Positive", "Negative") &
+  clinical_tcga$pr_status_by_ihc %in% c("Positive", "Negative")
+] <- "HER2-I"
+
+
+clinical_tcga$Subtype[
+  clinical_tcga$er_status_by_ihc == "Positive" &
+  (clinical_tcga$pr_status_by_ihc %in% c("Positive", "Negative")) &
+  clinical_tcga$her2_status_by_ihc == "Equivocal"
+] <- "LumB-I"
+
+clinical_tcga$Subtype[is.na(clinical_tcga$Subtype)] <- "Other"
+
+clinical_tcga <- clinical_tcga %>% dplyr::select(patient_ID,Subtype)
+
+tcga_df <- read_xlsx("transcriptomics_signature_enrichment_communities_tcga.xlsx")
+
+tcga_df <- tcga_df %>%
+  dplyr::group_by(patient_id) %>%
+  dplyr::filter((pathway %in% c("CL2", "CL3", "CL4", "CL7") & NES > 0) | 
+           (pathway %in% c("CL1", "CL5", "CL6") & NES > 1)) %>%
+  dplyr::slice_max(order_by = NES, n = 1) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(padj <= 0.01)  %>% 
+  dplyr::select(patient_id, pathway) %>% 
+  dplyr::rename(patient_ID = patient_id) %>% 
+  dplyr::rename(Signature = pathway) %>% 
+  dplyr::mutate(Signature = gsub("^CL", "Signature", Signature)) 
+
+tcga_df_clinic <- merge(tcga_df, clinical_tcga)
+
+
+cptac_df <- read_tsv("../Step4/patients_cluster.tsv")
+cptac_df <- cptac_df %>% 
+  dplyr::rename(Signature = community) %>% 
+  dplyr::mutate(Signature = gsub("^community_", "Signature", Signature))  %>%
+  dplyr::rename(Subtype = NMF.Cluster) 
+  
+
+output_list <- list(
+  CPTAC = cptac_df,
+  TCGA = tcga_df_clinic
+)
+
+# Scrive il file con due fogli
+write_xlsx(output_list, path = "Table_3.xlsx")
+
+
+```
+
+
