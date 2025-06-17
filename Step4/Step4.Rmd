@@ -87,28 +87,28 @@ write_tsv(patients_cluster[, -3], "patients_cluster.tsv")
 # Define colors for Subtypes
 mycols <- c("Basal-I" = "brown", "HER2-I" = "darkgoldenrod", "LumA-I" = "deepskyblue4", "LumB-I" = "chartreuse4")
 
-# Loop through unique clusters and generate pie charts
-for (cluster_id in unique(patients_cluster$community)) {
-  
-  # Count occurrences of each NMF community in the current patient community
-  count_data <- patients_cluster %>%
-    dplyr::filter(community == cluster_id) %>%
-    dplyr::group_by(NMF.Cluster) %>%
-    dplyr::summarise(n = n(), .groups = "drop") %>%
-    dplyr::mutate(prop = (n / sum(n)) * 100, lab.ypos = cumsum(prop) - 0.5 * prop) %>%
-    dplyr::arrange(desc(NMF.Cluster))
-  
-  # Generate pie chart
-  pie_chart_NMF <- ggplot(count_data, aes(x = "", y = prop, fill = NMF.Cluster)) +
-    geom_bar(width = 1, stat = "identity", color = "white") +
-    coord_polar("y", start = 0) +
-    geom_text(aes(y = lab.ypos, label = n), color = "white", size = 4) + # Improved label visibility
-    scale_fill_manual("Subtype", values = mycols) +
-    theme_void() +
-    ggtitle(cluster_id)
-  
-  print(pie_chart_NMF)
-}
+
+count_data <- patients_cluster %>%
+  group_by(community, NMF.Cluster) %>%
+  summarise(n = n(), .groups = "drop")
+
+
+p <- ggplot(count_data, aes(x = community, y = n, fill = NMF.Cluster)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", size = 3.5) +
+  scale_fill_manual(name = "Subtype", values = mycols) +
+  ylab("Number of patients") +
+  xlab("Community") +
+  ggtitle("Communities subdivision") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(color = "black", size = 0.6)  
+  )
+
 
 
 ```
