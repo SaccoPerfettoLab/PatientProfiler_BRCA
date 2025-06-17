@@ -522,11 +522,11 @@ all_data <- map(unique(global_table_enrichment_sign$pathway), function(community
 }) %>% compact()  # Remove NULL elements
 
 # Combine the data into a single dataframe
-df_totale <- bind_rows(all_data)
+df_total <- bind_rows(all_data)
 
 # Survival analysis
-surv_obj <- Surv(time = as.numeric(df_totale$serial_time), event = df_totale$status)
-logrank_test <- survdiff(surv_obj ~ group, data = df_totale)
+surv_obj <- Surv(time = as.numeric(df_total$serial_time), event = df_total$status)
+logrank_test <- survdiff(surv_obj ~ group, data = df_total)
 
 # Compute the Hazard Ratio (HR)
 D <- logrank_test$obs  # Number of observed events
@@ -542,13 +542,60 @@ group_colors <- c("#59BDB2", "#E7DBAE", "#F4A2A4", "#E94587", "#6B2B68")
 
 # Plot survival analysis using `ggsurvplot`
 plot <- ggsurvplot(
-  survfit(surv_obj ~ group, data = df_totale),
-  data = df_totale,
+  survfit(surv_obj ~ group, data = df_total),
+  data = df_total,
   risk.table = TRUE,
   pval = TRUE,
   palette = group_colors
 )
 
+
+
+####### pvalue for Basal-associated communities 
+
+
+comm_list <- c()
+pval_list <- c()
+OR_list <- c()
+community_list <- c()
+
+for (community in unique(df_total_subtypes$group)) {
+  boolean_comm <- df_total_subtypes$group == community
+  boolean_basal <- df_total_subtypes$subtype == 'Basal-I'
+  
+  df_test <- tibble(
+    'comm' = boolean_comm,
+    'basal' = boolean_basal
+  )
+  
+  contingency_table <- table(df_test$comm, df_test$basal)
+  fisher_test <- fisher.test(contingency_table)
+  
+  pval_list <- c(pval_list, fisher_test$p.value)
+  OR_list <- c(OR_list, unname(fisher_test$estimate))
+  community_list <- c(community_list, community)
+}
+
+pval_adj_list <- p.adjust(pval_list, method = "BH")
+
+comm_list <- community_list[pval_adj_list < 0.05 & OR_list > 1]
+
+current_df <- df_total
+current_df_basal <- df_total %>% filter(group %in% comm_list)
+
+if (length(comm_list) > 1) {
+  current_df <- current_df_basal
+  surv_obj <- Surv(time = as.numeric(current_df$serial_time), event = current_df$status)
+  logrank_test <- survdiff(surv_obj ~ group, data = current_df)
+  
+  D1 <- logrank_test$obs[1]
+  D2 <- logrank_test$obs[2]
+  E1 <- logrank_test$exp[1]
+  E2 <- logrank_test$exp[2]
+  HR <- (D1 / D2) / (E1 / E2)
+  
+  p_value_logrank <- pchisq(logrank_test$chisq, df = length(logrank_test$n) - 1, lower.tail = FALSE)
+  #print(p_value_logrank)
 
 ```
 
