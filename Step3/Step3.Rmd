@@ -31,7 +31,6 @@ create_cohort_networks(trans_dir = './Transc_patients/',
                       desired_phenotypes = c("ANGIOGENESIS",
                                                 "APOPTOSIS",
                                                 "AUTOPHAGY",
-                                                "BROWN_ADIPOGENESIS",
                                                 "CELL_CYCLE_EXIT",
                                                 "CELL_KILLING",
                                                 "ECM_DISASSEMBLY",
@@ -76,7 +75,6 @@ activities <- read_tsv(paste0('./Activities/Activity_constraints_Patient_', pati
 desired_phenotypes <- c("ANGIOGENESIS",
                         "APOPTOSIS",
                         "AUTOPHAGY",
-                        "BROWN_ADIPOGENESIS",
                         "CELL_CYCLE_EXIT",
                         "CELL_KILLING",
                         "ECM_DISASSEMBLY",
@@ -359,7 +357,7 @@ nodes_total <- bind_rows(nodes_list)
 NMF <- nodes_total %>%
   filter(method == "phenoscore") %>%
   select(gene_name, final_score, NMF.Cluster) %>%
-  filter(!gene_name %in% c("BROWN ADIPOGENESIS", "TELOMERE MAINTENANCE"))
+  filter(!gene_name %in% c("TELOMERE MAINTENANCE"))
 
 # Define a symmetric logarithmic transformation function
 symlog <- function(x, base = 2) {
