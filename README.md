@@ -26,7 +26,7 @@ The repository is divided in Steps:
 
 5.  [Step5: Identification of biomarkers](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step5/Step5.html)
 
-Next, two additional folder contain the PatientProfiler robustness assessment and benchmarking:
+Next, two additional folders contain the PatientProfiler robustness assessment and benchmarking:
 
 -   **Robustness assessment** is divided in:
 
