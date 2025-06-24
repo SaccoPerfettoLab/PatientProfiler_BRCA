@@ -124,7 +124,7 @@ create_network(patient_id = patient_id,
 
 Summary of the network size, as shown by the distribution of the number of nodes (top) and edges (bottom) in individual patients, stratified by subtypes. The dashed-red bar indicates the average number of estimated nodes and edges in each subgroup. The result of this analysis is reported in **Figure 3B.**
 
-```{r 3b, include=FALSE, eval = FALSE}
+```{r 3b, include=TRUE, eval = FALSE}
 # Load clinical data and extract patient ids
 clinical_dataframe <- read_tsv("../Step1/clinical_dataframe.tsv")
 rownames(clinical_dataframe) <- clinical_dataframe$Name
@@ -191,20 +191,21 @@ agg_df <- agg_df %>%
 # Get unique clusters
 clusters <- unique(agg_df$NMF.Cluster)
 
-# Function to create plots for a single cluster
 create_plot <- function(cluster) {
   # Filter data for current cluster
-  df_cluster <- filter(agg_df, NMF.Cluster == cluster) %>%
-    arrange(desc(carnival_activity))  # Ensure carnival_activity is ordered
+  df_cluster <- filter(agg_nodes, NMF.Cluster == cluster) %>%
+    dplyr::arrange(desc(carnival_activity)) %>%
+    dplyr::mutate(carnival_activity = factor(carnival_activity, levels = c(-100, 100)))
   
   # Define color mapping for carnival_activity
   color_mapping <- c("-100" = "#4492C2", "100" = "#D7604D")
   
-  # Create the bar plot with mean line
-  p <- ggplot(df_cluster, aes(x = patient_ID, y = count_single, fill = as.factor(carnival_activity))) +
+  #Create the bar plot with mean line
+  ggplot(df_cluster, aes(x = patient_ID, y = count_single, fill = carnival_activity)) +
     geom_bar(stat = "identity", position = "stack", width = 0.99) +
     geom_hline(aes(yintercept = mean_count_tot), color = "red", linetype = "dashed") +
     scale_fill_manual(values = color_mapping) +
+    ylim(0, 250) + 
     labs(title = paste("Count for", cluster),
          x = "Patient",
          y = "Count",
@@ -216,10 +217,7 @@ create_plot <- function(cluster) {
           legend.text = element_text(size = 8)) +
     annotate("text", x = Inf, y = Inf, label = paste("Mean:", round(unique(df_cluster$mean_count_tot), 2)),
              hjust = 1.1, vjust = 1.1, color = "red", size = 3)
-  
-  return(p)
 }
-
 # Create plots for each cluster
 plot_list <- lapply(clusters, create_plot)
 
@@ -235,6 +233,7 @@ prop <- sapply(plot_list, function(p) {
 
 # Combine plots in a grid with relative heights
 combined_plot <- plot_grid(plotlist = plot_list, ncol = 4, align = 'h', rel_heights = prop)
+
 
 
 #### EDGES COUNT
@@ -264,16 +263,17 @@ agg_df <- agg_df %>%
 # Get unique cluster names
 clusters <- unique(agg_df$NMF.Cluster)
 
+
 # Function to create plots for each cluster
 create_plot <- function(cluster) {
+  
   # Filter data for the current cluster and ensure sorted by 'sign'
   df_cluster <- filter(agg_df, NMF.Cluster == cluster) %>%
-    arrange(desc(sign))  # Ensure 'sign' order is respected
-  
-  # Define color mapping for 'sign' values
+    arrange(desc(sign))  
+ 
+   # Define color mapping for 'sign' values
   color_mapping <- c("-1" = "#4492C2", "1" = "#D7604D")
   
-  # Create the barplot with the mean line
   p <- ggplot(df_cluster, aes(x = patient_ID, y = count_single, fill = as.factor(sign))) +
     geom_bar(stat = "identity", position = "stack", width = 0.99) +
     geom_hline(aes(yintercept = mean_count_tot), color = "red", linetype = "dashed") +
@@ -282,6 +282,7 @@ create_plot <- function(cluster) {
          x = "Patient",
          y = "Count",
          fill = "Sign") +
+    ylim(0, 500) +  
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 8),
           legend.position = "top",
@@ -292,6 +293,7 @@ create_plot <- function(cluster) {
   
   return(p)
 }
+
 
 # Create plots for all clusters
 plot_list <- lapply(clusters, create_plot)
@@ -307,6 +309,7 @@ prop <- sapply(plot_list, function(p) {
 
 # Combine plots in a grid with relative heights
 combined_plot <- plot_grid(plotlist = plot_list, ncol = 4, align = 'h', rel_heights = prop)
+
 ```
 
 ![](images/3B.svg)
