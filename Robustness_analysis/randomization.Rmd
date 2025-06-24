@@ -1,0 +1,609 @@
+---
+title: "Robustness analysis: randomization"
+output: html_document
+date: "2025-06-11"
+---
+
+# Libraries
+```{r}
+knitr::opts_chunk$set(echo = T, warning = FALSE, message = FALSE)
+suppressMessages(suppressWarnings(source('0.libraries.R')))
+suppressMessages(suppressWarnings(source('0.test_signature_on_dataset_PP.R')))
+```
+
+The generated data and results for the following analyses cannot be stored on github due to size limits.
+To obtain the data, feel free to contact us at veronica.lombardi@uniroma1.it and livia.perfetto@uniroma1.it.
+
+# Shuffle CPTAC transcriptomics and enrich TCGA 
+
+### Shuffling CPTAC transcriptomics data
+```{r eval = F}
+tr_df_cptac <- read_tsv("../Step5/Transcriptomics_updated_CPTAC_coding.tsv")
+tr_df_cptac %>% column_to_rownames('gene_name') -> expr_matrix
+
+set.seed(42)  # for reproducibility
+
+# Suppose expr_matrix is your genes x samples matrix
+shuffle_expr_list <- replicate(
+  n = 50,
+  expr_matrix %>%
+    apply(1, sample) %>%  # shuffle each gene's expression values
+    t(),                  # transpose back to genes x samples
+  simplify = FALSE
+)
+
+patients <- colnames(tr_df_cptac)
+
+dir.create('Shuffled_CPTAC_transcriptomics')
+for(i in c(1:50)){
+  tr_df_i <- shuffle_expr_list[[i]]
+  genes <- rownames(tr_df_i)
+
+  colnames(tr_df_i) <- patients[-1]
+  as_tibble(tr_df_i) -> tr_df_i
+  tr_df_i$gene_name <- genes
+  tr_df_i <- tr_df_i %>% relocate('gene_name')
+
+  write_tsv(tr_df_i, paste0('Shuffled_CPTAC_transcriptomics/CPTAC_transcriptomics_shuffled_', i, '.tsv'))
+}
+```
+
+### Perform ANOVA on TCGA patients on multithreading 
+```{r eval = F}
+ library(future.apply)
+plan(multisession, workers = 10)
+
+future_lapply(1:50, function(i) {
+
+  source('0.library.R')
+
+  message("Running iteration ", i)
+
+  #Run for communities 2, 3,4 , 7
+  extract_signatures(base_path = "../Step4/output_communities/",
+                     transcriptomics_file = paste0('Shuffled_CPTAC_transcriptomics/CPTAC_transcriptomics_shuffled_', i, '.tsv'),
+                     output_dir = paste0("./Run_for_communities_2_3_4_7_shuffled_", i),
+                     diff_thres = 0.7)
+
+  #Run for communities 1, 5, 6
+  extract_signatures(base_path = "../Step4/output_communities/",
+                     transcriptomics_file = paste0('Shuffled_CPTAC_transcriptomics/CPTAC_transcriptomics_shuffled_', i, '.tsv'),
+                     output_dir = paste0("./Run_for_communities_1_5_6_shuffled_", i),
+                     diff_thres = 0.5)
+
+  return(NULL)
+})
+```
+
+Order the output of different thresholds in a new folder
+```{r eval = F}
+for(i in c(1:50)){
+  # Define source directories
+  parent_dir_1 <- paste0("./Run_for_communities_1_5_6_shuffled_", i)
+  parent_dir_2 <- paste0("./Run_for_communities_2_3_4_7_shuffled_", i)
+
+  dir_1 <- file.path(parent_dir_1, "Signatures")
+  dir_2 <- file.path(parent_dir_2, "Signatures")
+
+  # Define the files to extract
+  files_1 <- c("signature_community_1.tsv", "signature_community_5.tsv", "signature_community_6.tsv")
+  files_2 <- c("signature_community_2.tsv", "signature_community_3.tsv", "signature_community_4.tsv", "signature_community_7.tsv")
+
+  # Define the destination directory
+  dest_dir <- paste0("./Run_for_communities_shuffled_", i)
+  dir.create(dest_dir)
+
+  # Function to move files
+  move_files <- function(file_list, source_dir, destination_dir) {
+    for (file in file_list) {
+      source_path <- file.path(source_dir, file)
+      dest_path <- file.path(destination_dir, file)
+
+      # Check if the file exists before moving
+      if (file_exists(source_path)) {
+        file_move(source_path, dest_path)
+        cat("Moved:", file, "to", destination_dir, "\n")
+      } else {
+        cat("File not found:", file, "\n")
+      }
+    }
+  }
+
+  # Move the required files
+  move_files(files_1, dir_1, dest_dir)
+  move_files(files_2, dir_2, dest_dir)
+
+  # Delete the directories, including their parent folders
+  if (dir_exists(parent_dir_1)) {
+    dir_delete(parent_dir_1)
+    cat("Deleted directory:", parent_dir_1, "\n")
+  }
+  if (dir_exists(parent_dir_2)) {
+    dir_delete(parent_dir_2)
+    cat("Deleted directory:", parent_dir_2, "\n")
+  }
+}
+
+```
+
+# Run FGSEA in parallel on TCGA data
+```{r eval = F}
+
+clinic <- read_tsv("../Step5/clinical_TCGA.tsv") 
+
+# Remove first two rows (assuming they contain metadata)
+clinic <- clinic[-(1:2), ]
+
+# Create a dataframe with patient survival information 
+## V2 improvement Livia
+df_clinical_status <- data.frame(
+  patient_id = clinic$patient_ID,
+  serial_time = as.numeric(ifelse(clinic$death_days_to == '[Not Applicable]', 
+                                  clinic$last_contact_days_to, clinic$death_days_to)),
+  status = ifelse(clinic$vital_status == 'Alive', 0, 1)  # Initialize status as 0 (alive)
+)
+
+# Order by survival time
+clinical_data_formatted <- df_clinical_status[order(df_clinical_status$serial_time), ]
+
+tcga_transcriptomics <- read_tsv('./transcriptomics_TCGA_zscored.tsv')
+
+
+library(future)
+library(future.apply)
+library(readr)
+
+# Set up parallel plan (adjust depending on your system: multisession for Windows, multicore for Unix-like)
+#plan(multisession)  # or plan(multicore) on Linux/macOS
+plan(multisession, workers = 10)
+
+# Define the function to apply in parallel
+run_analysis <- function(i_run) {
+  dest_dir <- paste0("./Shuffled_signatures/Run_for_communities_shuffled_", i_run)
+  
+  n_com <- list.files(dest_dir)
+  
+  gene_signatures <- list()
+  for (i in seq_along(n_com)) {
+    comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), show_col_types = FALSE)
+    gene_signatures[[i]] <- comm_f$gene_name
+  }
+  names(gene_signatures) <- paste0("Comm_", seq_along(n_com))
+  
+  KM_list <- tryCatch(
+    {
+      test_signature_on_dataset(
+        gene_signatures = gene_signatures,
+        transcriptomic_data = tcga_transcriptomics,
+        clinical_data = clinical_data_formatted,
+        pval_cutoff = 0.05,
+        NES_filter = TRUE
+      )
+    },
+    error = function(e) {
+      message("Error in run ", i_run, ": ", e$message)
+      return(NULL)
+    }
+  )
+  
+  if (!is.null(KM_list)) {
+    write_tsv(KM_list$enrichment, paste0('./BRCA_enrichment/fgsea_tcga_shuffle_', i_run, '.tsv'))
+  }
+  
+  return(NULL)  # return nothing or custom status
+}
+
+# Run in parallel over 1:50
+future_lapply(1:50, run_analysis)
+```
+
+# Create a TCGA results table 
+```{r eval = F}
+# Read TCGA enrichment in original PatientProfiler run
+tcga_subtypes <- readxl::read_excel('../Step5/Table_3.xlsx',sheet = 2)%>%
+  dplyr::select(patient_id = patient_ID, subtype = Subtype, patientprofiler = Signature) %>%
+  dplyr::filter(!is.na(subtype)) %>% dplyr::filter(subtype != 'Normal')
+
+tcga_subtypes$patientprofiler <- as.numeric(gsub('Signature', '', tcga_subtypes$patientprofiler))
+
+
+clinic <- read_tsv("../Step5/clinical_TCGA.tsv") 
+
+# Remove first two rows (assuming they contain metadata)
+clinic <- clinic[-(1:2), ]
+
+# Create a dataframe with patient survival information 
+## V2 improvement Livia
+df_clinical_status <- data.frame(
+  patient_id = clinic$patient_ID,
+  serial_time = as.numeric(ifelse(clinic$death_days_to == '[Not Applicable]', 
+                                  clinic$last_contact_days_to, clinic$death_days_to)),
+  status = ifelse(clinic$vital_status == 'Alive', 0, 1)  # Initialize status as 0 (alive)
+)
+
+# Order by survival time
+clinical_data_formatted <- df_clinical_status[order(df_clinical_status$serial_time), ]
+
+gene_signatures <- list()
+transcriptomic_data <- tibble()
+
+pvalues_table <- tibble(run_id = character(), 
+                        pvalue_KM = numeric(),
+                        n_sign_KM = numeric(),
+                        enriching_signatures = character())
+
+proportions <- c(5, 10, 15, 25, 50, 75, 100)
+
+for(prop in proportions){
+  
+  for (i_run in 1:50) {
+     run_id <- paste0('shuffling_', prop, 'perc_', i_run)
+    
+    if(prop != 100){
+      key = paste0(prop, 'perc_', i_run)
+    }else{
+      key = i_run
+    }
+    
+    if(file.exists(paste0('./BRCA_enrichment/fgsea_tcga_shuffle_', key, '.tsv'))){
+      enrichment_raw <- read_tsv(paste0('./BRCA_enrichment/fgsea_tcga_shuffle_', key, '.tsv')) 
+    }else{
+      next
+    }
+    
+    enrichment <- enrichment_raw %>%
+      dplyr::select(patient_id, signature = pathway)
+    
+    enrichment %>%
+      dplyr::count(signature) %>%
+      filter(n < 5) %>%
+      pull(signature) -> to_exclude
+    
+    enrichment %>% 
+      distinct(signature) %>% 
+      filter(!signature %in% to_exclude) %>%
+      pull(signature) -> to_keep
+    
+    
+    n_sign_KM <- length(unique(enrichment$signature)) - length(to_exclude)
+    
+    # Remove communities without enough patients
+    enrichment <- enrichment %>% filter(signature %in% to_keep)
+    enrichment$signature <- gsub('Comm_', '', enrichment$signature)
+    colnames(enrichment)[2] <- run_id
+    
+    tcga_subtypes <- full_join(tcga_subtypes, 
+                               enrichment, by = 'patient_id')
+    
+    if(length(to_keep) <= 1){
+      pvalues_table <- pvalues_table %>% 
+        add_row(run_id = run_id, 
+                pvalue_KM = NA,
+                n_sign_KM = n_sign_KM, 
+                enriching_signatures = paste0(to_keep, collapse = ';'))
+      
+      next
+    }
+    
+    # Generate pvalue matrix 
+    test_signature_on_dataset(
+      gene_signatures = gene_signatures,
+      transcriptomic_data = transcriptomic_data,
+      clinical_data = clinical_data_formatted,
+      pval_cutoff = 0.01,
+      NES_filter = TRUE,
+      enrichment_result = enrichment_raw,
+      time_threshold = 365*5,
+      exclude_communities = to_exclude
+    ) -> KM_list
+    
+      # Create pvalue table
+      pvalues_table <- pvalues_table %>% 
+        add_row(run_id = run_id, 
+                pvalue_KM = KM_list$adjusted_p_value,
+                n_sign_KM = n_sign_KM, 
+                enriching_signatures = paste0(to_keep, collapse = ';'))
+  }
+}
+
+pvalues_table_adj <- pvalues_table %>%
+  mutate(p_value_adj_KM = p.adjust(pvalue_KM, method = 'BH'))
+
+write_tsv(pvalues_table_adj, './results/pvalue_table_shuffling.tsv')
+write_tsv(tcga_subtypes, './results/tcga_results_shuffling.tsv')
+```
+
+
+# Compare control (shuffled) and original signatures
+```{r eval = F}
+proportions <- c(5, 10, 15, 25, 50, 75, 100)
+
+# Read TCGA enrichment result using original signatures
+cptac_results <- readxl::read_excel('../Step5/Table_3.xlsx',sheet = 1)%>%
+  dplyr::select(patient_id = patient_ID, subtype = Subtype, patientprofiler = Signature) %>%
+  dplyr::mutate(subtype = str_to_upper(str_remove(pattern = '\\-I', subtype)),
+                patientprofiler = str_remove(pattern = 'Signature', patientprofiler)) 
+
+
+# Read TCGA enrichment result using shuffled signatures
+tcga_results <- read_tsv('./results/tcga_results_shuffling.tsv') %>%
+  filter(!is.na(subtype)) %>%
+  dplyr::mutate(subtype = str_to_upper(subtype))
+
+max_values_cptac <- sapply(cptac_results[,-c(1:2)], max, na.rm = TRUE)
+
+all_results <- tibble()
+
+runs <- unlist(lapply(paste0('shuffling_', proportions, 'perc'), function(x) paste0(x, '_', 1:50)))
+
+runs <- c('patientprofiler', runs)
+
+cptac <- cptac_results %>% dplyr::select(subtype)
+
+
+for(run in runs){
+  groups <- 1:7
+  
+  for (group_id in groups) {
+    if(run %in% colnames(tcga_results)){
+      cptac <- cptac_results %>% 
+        filter(.data[['patientprofiler']] == group_id) %>% 
+        dplyr::select(subtype)
+      tcga <- tcga_results %>% 
+        filter(.data[[run]] == as.character(group_id)) %>% 
+        dplyr::select(subtype)
+    }else{
+      cosine_similarity <- NA
+      next
+    }
+    
+    # Initialize output values
+      cosine_similarity <- NA
+      
+      if (nrow(tcga) > 0 & nrow(cptac) > 0) {
+        subtype_table <- table(
+          c(tcga$subtype, cptac$subtype),
+          c(rep("tcga", nrow(tcga)), rep("cptac", nrow(cptac)))
+        )
+        
+        if (nrow(subtype_table) > 1) {
+          vec_cptac <- subtype_table[,1]
+          vec_tcga <- subtype_table[,2]
+          cosine_similarity <- sum(vec_cptac * vec_tcga) / (sqrt(sum(vec_cptac^2)) * sqrt(sum(vec_tcga^2)))
+        }
+      }
+      # Store result
+      all_results <- bind_rows(all_results, tibble(
+        run = run,
+        group = group_id,
+        cosine_similarity = cosine_similarity
+      ))
+  }
+}
+```
+
+
+Create a table with similarity among subtypes and prognostic value
+```{r eval = F}
+
+pvalues_table <- read_tsv('./results/pvalue_table_shuffling.tsv') 
+
+all_results %>%
+  dplyr::group_by(run) %>%
+  dplyr::summarise(avg_cosine = mean(cosine_similarity, na.rm = TRUE)) -> summary_results
+
+summary_results_pval <- inner_join(summary_results, pvalues_table, 
+                                   by = c('run' = 'run_id'))
+summary_results_pval$signatures_n <- NULL
+
+summary_results_pval$run <- str_remove(summary_results_pval$run, 'shuffling_')
+write_tsv(summary_results_pval, './results/shuffling_result.tsv')
+```
+
+# Plots
+
+Read results
+```{r}
+shuffl_result <- read_tsv('./results/shuffling_result.tsv') 
+shuffl_result %>% separate(run, into = c('perc', 'iter')) -> shuffl_result
+
+shuffl_result$perc <- gsub('perc', '%', shuffl_result$perc)
+
+shuffl_result$perc <- factor(shuffl_result$perc, levels = c('0%', '5%', '10%', '15%', '25%', '50%', '75%', '100%'))
+```
+
+## Signatures number
+```{r}
+shuffl_result[-1,] %>%
+  ggplot(aes(x = perc, y = n_sign_KM))+
+  geom_boxplot() +
+  theme_classic()+
+  ylab('# of signatures') +
+  xlab('% of shuffled genes') -> signatures_num
+```
+
+## Prognostic value
+```{r}
+# Define bins and colors (light grays)
+pval_bins <- data.frame(
+  ymin = c(0, 0.01, 0.05, 0.1, 0.25, 0.5),
+  ymax = c(0.01, 0.05, 0.1, 0.25, 0.5, 1),
+  fill = factor(c("<0.01", "0.01–0.05", "0.05–0.1", "0.1–0.25", "0.25–0.5", ">0.5"),
+                levels = c("<0.01", "0.01–0.05", "0.05–0.1", "0.1–0.25", "0.25–0.5", ">0.5"))
+)
+
+# Plot with background bins
+ggplot() +
+  geom_rect(data = pval_bins,
+            aes(ymin = ymin, ymax = ymax, xmin = -Inf, xmax = Inf, fill = fill),
+            alpha = 0.2) +
+  geom_boxplot(data = shuffl_result %>% filter(perc != '0%') %>% drop_na(pvalue_KM),
+               aes(x = perc, y = pvalue_KM), outlier.shape = NA) +
+  geom_jitter(data = shuffl_result %>% filter(perc != '0%') %>% drop_na(pvalue_KM),
+              aes(x = perc, y = pvalue_KM), width = 0.2, size = .3) +
+  geom_hline(yintercept = 0.05, color = 'red') +
+  scale_fill_brewer(palette = "Greys", name = "P-value range", direction = -1) +
+  labs(
+    x = "% of shuffled genes",
+    y = "Signatures groups adj p-values in Kaplan-Meier curves"
+  ) +
+  theme_classic() +
+  theme(legend.position = "right") -> boxplot_pvalues_bins
+```
+
+## Subtypes similarity
+```{r}
+pp_threshold <- 0.867
+
+shuffl_result %>% 
+  ggplot(aes(x = perc, y = avg_cosine)) +
+  geom_boxplot(outlier.shape = NA)+
+  geom_jitter( width = 0.2, size = .3) +
+   geom_hline(yintercept = 0.867, color = 'red', linetype = 'dashed') +
+   labs(
+    x = "% of shuffled genes",
+    y = "Avg cosine similarity across signatures"
+  ) +
+  theme_classic() +
+  ylim(0, 1) -> plot_classification
+```
+
+## Check signatures similarity
+To obtain the Shuffled_signatures folder contact us.
+```{r eval = F}
+jaccard_results <- list()
+
+for(prop in c(5, 10, 15, 25, 50, 75, 100)){
+  for (i_run in 1:50) {
+    if(prop == 100){
+       dest_dir <- paste0("./Shuffled_signatures/Run_for_communities_shuffled_", i_run)
+    }else{
+       dest_dir <- paste0("./Shuffled_signatures/Run_for_communities_shuffled_", prop, 'perc_', i_run)
+    }
+   
+    n_com <- list.files(dest_dir)
+    gene_signatures <- list()
+    for (i in seq_along(n_com)) {
+      comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), 
+                         show_col_types = FALSE)
+      gene_signatures[[i]] <- comm_f$gene_name
+      }
+    names(gene_signatures) <- paste0("community_", seq_along(n_com))
+  
+    signatures_genes <- stack(gene_signatures)
+    colnames(signatures_genes) <- c("gene_name", "community")
+    signatures_genes$run <- paste0(prop, 'perc_', i_run)
+    
+    if(i_run == 1 & prop == 5){
+      all_signatures <- signatures_genes
+      }else{
+      all_signatures <- bind_rows(all_signatures, signatures_genes)
+    }
+  }
+}
+
+# Get PatientProfiler original signatures
+dest_dir <- '../Step5'
+gene_signatures_pp <- list()
+
+i = 1
+for (i in seq_along(n_com)) {
+    comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), show_col_types = FALSE)
+    gene_signatures_pp[[i]] <- comm_f$gene_name
+    }
+names(gene_signatures_pp) <- paste0("community_", seq_along(n_com))
+  
+  patientprofiler_genes <- stack(gene_signatures_pp)
+colnames(patientprofiler_genes) <- c("gene_name", "community")
+  patientprofiler_genes$run <- 'patientprofiler'
+
+
+pairs <- unique(all_signatures[, c("run", "community")])
+
+i = 1
+for (i in seq_len(nrow(pairs))) {
+  run_i <- pairs$run[i]
+  community_i <- pairs$community[i]
+  
+  # Get gene sets
+  genes_set <- all_signatures %>%
+    filter(run == run_i, community == community_i) %>%
+    pull(gene_name) %>%
+    unique()
+  
+  signature_set <- patientprofiler_genes %>%
+    filter(community == community_i) %>%
+    pull(gene_name) %>%
+    unique()
+  
+  # Compute Jaccard Index safely
+  union_len <- length(union(genes_set, signature_set))
+  intersection_len <- length(intersect(genes_set, signature_set))
+  
+  jaccard <- if (union_len > 0) intersection_len / union_len else NA_real_
+  
+  # Store result
+  jaccard_results[[i]] <- data.frame(
+    run = run_i,
+    community = community_i,
+    jaccard_index = jaccard,
+    intersection = intersection_len,
+    sign_length = length(signature_set)
+  )
+}
+
+# Combine all results into a single dataframe
+jaccard_df <- do.call(rbind, jaccard_results) %>%
+   mutate(perc_sign = intersection/sign_length * 100)
+
+write_tsv(jaccard_df, './results/shuffling_jaccard_df.tsv')
+```
+
+### Boxplot similarity
+```{r}
+jaccard_df <- read_tsv('./results/shuffling_jaccard_df.tsv')
+
+jaccard_df %>%
+  separate(run, sep = '_', into = c('perc', 'iter')) -> jaccard_df
+
+jaccard_df$perc <- gsub('perc', '%', jaccard_df$perc)
+
+jaccard_df$community <- gsub('community_', 'CL', jaccard_df$community)
+
+group_colors <- c('CL1' = "grey",
+                  'CL2' = "#59BDB2", 
+                  'CL3' = "#E7DBAE", 
+                  'CL4' = "#F4A2A4", 
+                  'CL5' = "#E94587", 
+                  'CL6' = "#9CCEE3",
+                  'CL7' = "#6B2B68")
+
+
+jaccard_df$perc <- factor(jaccard_df$perc, levels = c('0%', '5%', '10%', '15%', '25%', '50%', '75%', '100%'))
+
+jaccard_df %>%
+  ggplot(aes(x = perc, y = intersection/sign_length * 100, fill = community))+
+  geom_boxplot() +
+  scale_fill_manual(values = group_colors) +
+  xlab('') +
+  ylab('% of signatures genes found') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 0, vjust = .5)) -> boxplot_intesection
+```
+
+## Supplementary Figure
+```{r}
+plot_list <- list(boxplot_intesection, 
+                  signatures_num,
+                  boxplot_pvalues_bins, 
+                  plot_classification)
+
+cowplot::plot_grid(plotlist = plot_list, ncol = 2, 
+                   rel_widths = c(c(2,1.5), c(1,1)), align = 'h',
+                   labels = LETTERS[1:4]) 
+
+ # ggsave('../Figures/shuffling_validation.pdf', dpi = 300,
+ #         width = 8, height = 6, device = 'pdf')
+```
+
+**Supplementary Figure. Randomization analysis result. A)** Percentage of genes from the original PatientProfiler run recovered in control signatures across across 50 randomization runs at increasing proportion of shuffled genes (5, 10, 15, 25, 50, 75, 100%) in CPTAC transcriptomics data. **B)** Number of control signatures enriching TCGA patients across proportions of randomized genes. **C)** Prognostic value of control signatures evaluated via Kaplan-Meier analysis. Each boxplot summarizes the adjusted p-values across runs for different shuffling percentages. The horizontal red dashed line marks the 0.05 significance threshold. Background shading indicates p-value ranges. **D)** Similarity between CPTAC and TCGA patient subtype distributions, defined by average cosine similarity across runs. The horizontal red dashed line marks the average cosine similarity of original PatientProfiler run.  

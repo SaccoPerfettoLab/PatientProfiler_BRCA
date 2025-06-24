@@ -16,7 +16,6 @@ Read the full paper on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.01
 
 The repository is divided in Steps:
 
-
 1.  [Step1: Harmonization of input data](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step1/Step1.html)
 
 2.  [Step2: Protein activity inference](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step2/Step2.html)
@@ -27,7 +26,14 @@ The repository is divided in Steps:
 
 5.  [Step5: Identification of biomarkers](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step5/Step5.html)
 
-  [Benchmark: comparison with other methods to find signatures](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Benchmark/Benchmark.html)
+Next, two additional folder contain the PatientProfiler robustness assessment and benchmarking:
 
+-   **Robustness assessment** is divided in:
+
+    -   [Randomization analysis](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Robustness_analysis/randomization.html)
+
+    -   [Cross-validation](%5Bhttps://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Robustness_analysis/crossvalidation.html)
+
+-   [Benchmark: comparison with other methods to find signatures](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Benchmark/Benchmark.html)
 
 <img src="./img/Figure1-2.svg" width="720" height="800"/>

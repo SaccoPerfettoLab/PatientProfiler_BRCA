@@ -1,0 +1,497 @@
+---
+title: "training_test.Rmd"
+output: html_document
+date: "2025-06-11"
+---
+
+# Libraries
+```{r}
+knitr::opts_chunk$set(echo = T, warning = FALSE, message = FALSE)
+suppressMessages(suppressWarnings(source('0.libraries.R')))
+suppressMessages(suppressWarnings(source('0.test_signature_on_dataset_PP.R')))
+```
+
+# Associate patients to communities
+```{r}
+fold_comm <- list.files('../Step4/output_communities/')
+comm_pat <- list()
+for(i_fold in 1:7){
+  comm_pat[[i_fold]] <- read_tsv(paste0('../Step4/Communities/output_communities/community_', 
+                                        i_fold, '/patients.txt'), col_names = 'patient_id') %>% pull(patient_id)
+}
+
+names(comm_pat) <- paste0('CL', 1:7)
+```
+
+# Prepare crossvalidation input
+To run the crossvalidation, for each community, sample the 70% of patients as training set (the set of patients used to extract signatures) and 30% of patients as test set. For each random sampling, we generate two transcriptomics files containing only patients of training set of each community (Train_CPTAC_coding_{i}.tsv) and only test set (Test_CPTAC_coding_{i}.tsv). 
+
+The generated data and results for the following analyses cannot be stored on github due to size limits.
+To obtain the data, feel free to contact us at veronica.lombardi@uniroma1.it and livia.perfetto@uniroma1.it.
+```{r eval = F}
+for (i in 1:50) {
+  message("Processing iteration ", i)
+  all_patients_train <- c()
+  all_patients_test <- c()
+
+  for (comm_name in names(comm_pat)) {
+    patients <- comm_pat[[comm_name]]
+    n <- length(patients)
+    n_train <- floor(0.7 * n)
+
+    # Sample training and test sets
+    train_patients <- sample(patients, n_train)
+    test_patients <- setdiff(patients, train_patients)
+    all_patients_train <- c(all_patients_train, train_patients)
+    all_patients_test <- c(all_patients_test, train_patients)
+
+    # Create output folders
+    train_dir <- file.path(paste0("Crossvalidation_input/output_communities_train_", i), comm_name)
+    test_dir  <- file.path(paste0("Crossvalidation_input/output_communities_test_", i), comm_name)
+
+    dir.create(train_dir, recursive = TRUE, showWarnings = FALSE)
+    dir.create(test_dir, recursive = TRUE, showWarnings = FALSE)
+
+    # Write to file
+    writeLines(train_patients, file.path(train_dir, "patients.txt"))
+    writeLines(test_patients, file.path(test_dir, "patients.txt"))
+  }
+
+  tr_df <- read_tsv("../Step5/Transcriptomics_updated_CPTAC_coding.tsv")
+  tr_df_train <- tr_df %>% select(gene_name, all_patients_train)
+  tr_df_test <- tr_df %>% select(gene_name, all_patients_test)
+  write_tsv(tr_df_train, paste0('Transcriptomics_data_train_test/Train_CPTAC_coding_', i, '.tsv'))
+  write_tsv(tr_df_test, paste0('Transcriptomics_data_train_test/Test_CPTAC_coding_', i, '.tsv'))
+}
+```
+
+# Run crossvalidation 
+
+## I) Extract signatures from patients subsets
+
+```{r eval = F}
+library(future.apply)
+plan(multisession, workers = 10)
+
+future_lapply(1:50, function(i) {
+  
+  source('./0.libraries.R')
+  
+  message("Running iteration ", i)
+  
+  #Run for communities 2, 3,4 , 7
+  extract_signatures(base_path = paste0("./Crossvalidation_input/output_communities_train_", i, "/"),
+                     transcriptomics_file =  paste0('Transcriptomics_data_train_test/Train_CPTAC_coding_', i, '.tsv'),
+                     output_dir = paste0("./Crossvalidation_signatures/Run_for_communities_2_3_4_7_training_", i),
+                     diff_thres = 0.7)
+  
+  #Run for communities 1, 5, 6
+  extract_signatures(base_path =  paste0("./Crossvalidation_input/output_communities_train_", i, "/"),
+                     transcriptomics_file = paste0('Transcriptomics_data_train_test/Train_CPTAC_coding_', i, '.tsv'),
+                     output_dir = paste0("./Crossvalidation_signatures//Run_for_communities_1_5_6_training_", i),
+                     diff_thres = 0.5)
+  
+  return(NULL)
+})
+```
+
+Combine the signatures in a single folder. 
+```{r eval = F}
+for(i in c(1:50)){
+  # Define source directories
+  parent_dir_1 <- paste0("./Crossvalidation_signatures/Run_for_communities_1_5_6_training_", i)
+  parent_dir_2 <- paste0("./Crossvalidation_signatures/Run_for_communities_2_3_4_7_training_", i)
+
+  dir_1 <- file.path(parent_dir_1, "Signatures")
+  dir_2 <- file.path(parent_dir_2, "Signatures")
+
+  # Define the files to extract
+  files_1 <- c("signature_community_1.tsv", "signature_community_5.tsv", "signature_community_6.tsv")
+  files_2 <- c("signature_community_2.tsv", "signature_community_3.tsv", "signature_community_4.tsv", "signature_community_7.tsv")
+
+  # Define the destination directory
+  dest_dir <- paste0("./Crossvalidation_signatures/Run_for_communities_training_", i)
+  dir.create(dest_dir)
+
+  # Function to move files
+  move_files <- function(file_list, source_dir, destination_dir) {
+    for (file in file_list) {
+      source_path <- file.path(source_dir, file)
+      dest_path <- file.path(destination_dir, file)
+
+      # Check if the file exists before moving
+      if (file_exists(source_path)) {
+        file_move(source_path, dest_path)
+        cat("Moved:", file, "to", destination_dir, "\n")
+      } else {
+        cat("File not found:", file, "\n")
+      }
+    }
+  }
+
+  # Move the required files
+  move_files(files_1, dir_1, dest_dir)
+  move_files(files_2, dir_2, dest_dir)
+
+  # Delete the directories, including their parent folders
+  if (dir_exists(parent_dir_1)) {
+    dir_delete(parent_dir_1)
+    cat("Deleted directory:", parent_dir_1, "\n")
+  }
+  if (dir_exists(parent_dir_2)) {
+    dir_delete(parent_dir_2)
+    cat("Deleted directory:", parent_dir_2, "\n")
+  }
+}
+```
+
+## II) Run FGSEA analysis on CPTAC validation data
+```{r eval = F}
+source('0.run_fgsea_signatures.R')
+
+library(future)
+library(future.apply)
+library(readr)
+
+# Set up parallel plan (adjust depending on your system: multisession for Windows, multicore for Unix-like)
+#plan(multisession)  # or plan(multicore) on Linux/macOS
+plan(multisession, workers = 10)
+
+# Define the function to apply in parallel
+run_analysis <- function(i_run) {
+  dest_dir <- paste0("./Crossvalidation_signatures/Run_for_communities_training_", i_run)
+  
+  n_com <- list.files(dest_dir)
+  
+  gene_signatures <- list()
+  for (i in seq_along(n_com)) {
+    comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), show_col_types = FALSE)
+    gene_signatures[[i]] <- comm_f$gene_name
+  }
+  names(gene_signatures) <- paste0("Comm_", seq_along(n_com))
+  
+  transcriptomics_data <- read_tsv(paste0('Transcriptomics_data_train_test/Test_CPTAC_coding_', i_run, '.tsv'))
+  
+  enrichment_result <- tryCatch(
+    {
+      run_fgsea_signatures(
+        gene_signatures = gene_signatures,
+        transcriptomic_data = transcriptomics_data,
+        pval_cutoff = 0.05,
+        NES_filter = TRUE
+      )
+    },
+    error = function(e) {
+      message("Error in run ", i_run, ": ", e$message)
+      return(NULL)
+    }
+  )
+  
+  if (!is.null(KM_list)) {
+    write_tsv(enrichment_result, paste0('./BRCA_enrichment_test/fgsea_cptac_test_', i_run, '.tsv'))
+  }
+  
+  return(NULL)  # return nothing or custom status
+}
+
+# Run in parallel over 1:50
+future_lapply(1:50, run_analysis)
+```
+
+# Compute key metrics
+
+## Precision, Recall and F1 score
+```{r eval = F}
+
+# Get true labels once (assuming static across runs)
+com_TP <- stack(comm_pat)
+colnames(com_TP) <- c("patient_id", "community")
+
+# Initialize list to collect metrics
+all_metrics <- list()
+
+for (i_run in 1:50) {
+  
+  # Read enrichment and transcriptomics data
+  enrichment_df <- read_tsv(paste0("./BRCA_enrichment_test/fgsea_cptac_test_", i_run, ".tsv"), show_col_types = FALSE)
+  transcriptomics_data <- read_tsv(paste0('Transcriptomics_data_train_test/Test_CPTAC_coding_', i_run, '.tsv'), 
+                                   show_col_types = FALSE)
+  test_patients <- colnames(transcriptomics_data)[-1]
+
+  # Infer community label from enrichment
+  sign_pats <- enrichment_df %>%
+    filter(NES > 0) %>%
+    group_by(patient_id) %>%
+    slice_min(order_by = padj, n = 1) %>%
+    slice_max(order_by = NES, n = 1) %>%
+    ungroup() %>%
+    filter(padj < 0.01) %>%
+    dplyr::rename('inferred_label' = 'pathway') %>%
+    mutate(inferred_label = str_replace(inferred_label, "^Comm_(\\d+)$", "CL\\1"))
+  
+  # Join true and inferred labels
+  com_TP_inf <- full_join(sign_pats, com_TP, by = 'patient_id') %>%
+    filter(patient_id %in% test_patients)
+
+  # Compute metrics
+  metrics <- com_TP_inf %>%
+    dplyr::group_by(community) %>%
+    dplyr::summarise(
+      TP = sum(community == inferred_label, na.rm = TRUE),
+      FN = sum(is.na(inferred_label) & !is.na(community)),
+      FP = sum(community != inferred_label, na.rm = TRUE),
+      Precision = ifelse((TP + FP) > 0, TP / (TP + FP), NA),
+      Recall = ifelse((TP + FN) > 0, TP / (TP + FN), NA),
+      F1 = ifelse(!is.na(Precision) & !is.na(Recall) & (Precision + Recall) > 0,
+                   2 * Precision * Recall / (Precision + Recall), NA),
+      .groups = "drop"
+    ) %>%
+    mutate(run = i_run)
+  
+  # Store results
+  all_metrics[[i_run]] <- metrics
+}
+
+# Combine all metrics into one dataframe
+final_metrics<- bind_rows(all_metrics)
+
+write_tsv(final_metrics, './results/crossvalidation_f1_score.tsv')
+```
+
+## Patient community size and signatures' size
+
+### Patients' number 
+```{r eval  = F}
+for (i in 1:50) {
+  # Create output folders
+  train_dir <- file.path(paste0("Crossvalidation_input/output_communities_train_", i))
+  test_dir  <- file.path(paste0("Crossvalidation_input/output_communities_test_", i))
+  
+  #i_comm = 1
+  for(i_comm in c(1:7)){
+    comm_pat <- read_tsv(paste0(train_dir, '/community_', i_comm, '/patients.txt'), col_names = c('patient_id'))
+    comm_pat$community <- paste0('CL', i_comm)
+    comm_pat$run <- paste0('run_', i)
+    comm_pat$group <- 'train'
+    
+    comm_pat_t <- read_tsv(paste0(test_dir, '/community_', i_comm, '/patients.txt'), col_names = c('patient_id'))
+    comm_pat_t$community <- paste0('CL', i_comm)
+    comm_pat_t$run <- paste0('run_', i)
+    comm_pat_t$group <- 'test'
+    
+    comm_pat_i <- bind_rows(comm_pat, comm_pat_t)
+    if(i == 1 & i_comm == 1){
+      comm_pat_all <- comm_pat_i
+    }else{
+      comm_pat_all <- bind_rows(comm_pat_all, comm_pat_i)
+    }
+  }
+}
+
+write_tsv(comm_pat_all, './results/crossvalidation_patients_dim.tsv')
+```
+
+### Signatures' size
+```{r eval = F}
+for (i_run in 1:50) {
+  #i_run = 1
+  dest_dir <- paste0("./Crossvalidation_signatures/Run_for_communities_training_", i_run)
+  
+  n_com <- list.files(dest_dir)
+  gene_signatures <- list()
+  for (i in seq_along(n_com)) {
+    comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), show_col_types = FALSE)
+    gene_signatures[[i]] <- comm_f$gene_name
+  }
+  names(gene_signatures) <- paste0("CL", seq_along(n_com))
+  
+  gene_signatures_df <- stack(gene_signatures)
+  gene_signatures_df$run <- paste0('run_', i_run)
+  if(i_run == 1){
+    gene_signatures_df_all <- gene_signatures_df
+  }else{
+    gene_signatures_df_all <- bind_rows(gene_signatures_df_all, gene_signatures_df)
+  }
+}
+
+gene_signatures_df_all %>% 
+  dplyr::count(ind, run) %>%
+  dplyr::group_by(ind) %>%
+  dplyr::summarise(dim_sign = round(mean(n),0)) -> signatures_average_dim
+
+write_tsv(signatures_average_dim, './results/crossvalidation_signatures_dim.tsv')
+```
+
+### Intersection and Jaccard index
+```{r eval = F}
+jaccard_results <- list()
+
+for (i_run in 1:50) {
+  dest_dir <- paste0("./Crossvalidation_signatures/Run_for_communities_training_", i_run)
+  
+  n_com <- list.files(dest_dir)
+  
+  gene_signatures <- list()
+  for (i in seq_along(n_com)) {
+    comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), show_col_types = FALSE)
+    gene_signatures[[i]] <- comm_f$gene_name
+  }
+  names(gene_signatures) <- paste0("CL", seq_along(n_com))
+  
+  signatures_genes <- stack(gene_signatures)
+  colnames(signatures_genes) <- c("gene_name", "community")
+  signatures_genes$run <- paste0('run_', i_run)
+  
+  if(i_run == 1){
+    all_signatures <- signatures_genes
+  }else{
+    all_signatures <- bind_rows(all_signatures, signatures_genes)
+  }
+}
+
+# Get patientprofiler signatures
+dest_dir <- '../Step5'
+gene_signatures <- list()
+
+for (i in seq_along(n_com)) {
+    comm_f <- read_tsv(paste0(dest_dir, '/signature_community_', i, '.tsv'), show_col_types = FALSE)
+    gene_signatures[[i]] <- comm_f$gene_name
+    }
+
+names(gene_signatures) <- paste0("CL", seq_along(n_com))
+  
+patientprofiler_genes <- stack(gene_signatures)
+colnames(patientprofiler_genes) <- c("gene_name", "community")
+patientprofiler_genes$run <- 'patientprofiler'
+
+pairs <- unique(all_signatures[, c("run", "community")])
+
+for (i in seq_len(nrow(pairs))) {
+  run_i <- pairs$run[i]
+  community_i <- pairs$community[i]
+  
+  # Get gene sets
+  genes_set <- all_signatures %>%
+    filter(run == run_i, community == community_i) %>%
+    pull(gene_name) %>%
+    unique()
+  
+  signature_set <- patientprofiler_genes %>%
+    filter(community == community_i) %>%
+    pull(gene_name) %>%
+    unique()
+  
+  # Compute Jaccard Index safely
+  union_len <- length(union(genes_set, signature_set))
+  intersection_len <- length(intersect(genes_set, signature_set))
+  
+  jaccard <- if (union_len > 0) intersection_len / union_len else NA_real_
+  
+  # Store result
+  jaccard_results[[i]] <- data.frame(
+    run = run_i,
+    community = community_i,
+    jaccard_index = jaccard,
+    intersection = intersection_len,
+    sign_length = length(signature_set)
+  )
+}
+
+# Combine all results into a single dataframe
+jaccard_df <- do.call(rbind, jaccard_results)
+write_tsv(jaccard_df, './results/crossvalidation_jaccard.tsv')
+```
+
+
+# Plots
+
+Define colors
+```{r}
+group_colors <- c('CL1' = "grey",
+                  'CL2' = "#59BDB2", 
+                  'CL3' = "#E7DBAE", 
+                  'CL4' = "#F4A2A4", 
+                  'CL5' = "#E94587", 
+                  'CL6' = "#9CCEE3",
+                  'CL7' = "#6B2B68")
+
+```
+
+F1 score across runs
+```{r}
+final_metrics <- read_tsv('./results/crossvalidation_f1_score.tsv')
+final_metrics %>% 
+  ggplot(aes(x = community, y = F1, fill = community)) +
+  scale_fill_manual(values = group_colors) +
+  geom_boxplot() +
+  theme_classic() +
+  xlab('') +
+  ylab('F1 score across 50 runs') +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5)) -> boxplot_F1score
+```
+
+
+Patients number
+```{r}
+comm_pat_all <- read_tsv('./results/crossvalidation_patients_dim.tsv')
+
+comm_pat_all %>% 
+  distinct(community, patient_id) %>% 
+  dplyr::count(community) %>%
+  ggplot(aes(x = community, y = n, fill = community)) +
+  geom_bar(stat = 'identity') + 
+  scale_fill_manual(values = group_colors) +
+  xlab('') +
+  ylab('# CPTAC Patients in community') +
+   geom_text(aes(label = n,vjust = 0)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5)) -> barplot_patients_comm
+```
+
+Signature avg size in crossvalidation
+```{r}
+signatures_average_dim <- read_tsv('./results/crossvalidation_signatures_dim.tsv')
+
+colnames(signatures_average_dim)[1] <- 'community'
+
+signatures_average_dim %>% 
+  ggplot(aes(x = community, y = dim_sign, fill = community)) +
+  geom_bar(stat = 'identity') + 
+  scale_fill_manual(values = group_colors) +
+  xlab('') +
+  ylab('Avg signature size in \n50 runs of crossvalidation') +
+  theme_classic() +
+  geom_text(aes(label = dim_sign,vjust = 0)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5)) -> barplot_sign_size
+```
+
+Intersection among original and crossvalidation signatures
+```{r}
+jaccard_df <- read_tsv('./results/crossvalidation_jaccard.tsv')
+jaccard_df %>%
+  ggplot(aes(x = community, y = intersection/sign_length * 100, fill = community))+
+  geom_boxplot() +
+  scale_fill_manual(values = group_colors) +
+  xlab('') +
+  ylab('% of signatures genes found') +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5)) -> boxplot_intesection
+```
+
+## Supplementary Figure
+```{r}
+
+plot_list_cross <- list(boxplot_intesection, boxplot_F1score, barplot_patients_comm, barplot_sign_size)
+
+cowplot::plot_grid(plotlist = plot_list_cross, ncol = 2, 
+                   align = 'hv',
+                   labels = LETTERS[1:4])
+# ggsave('../Figures/crossvalidation_cowplot.pdf', crossvalidation,
+#        width = 8, height = 6, dpi = 300, device = 'pdf')
+```
+**Supplementary Figure. Cross-validation results for community-specific classification performance.** **A)** Percentage of signature genes recovered in each of 50 cross-validation runs per community. **B)** F1 score distributions showing classification performance across runs. **C)** Number of CPTAC patients assigned to each community in the full run. **D)** Average number of genes included in the signature for each community across the 50 cross-validation runs.  
+
+
+
+
+
