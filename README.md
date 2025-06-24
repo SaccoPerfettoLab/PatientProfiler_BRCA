@@ -32,7 +32,7 @@ Next, two additional folder contain the PatientProfiler robustness assessment an
 
     -   [Randomization analysis](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Robustness_analysis/randomization.html)
 
-    -   [Cross-validation](%5Bhttps://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Robustness_analysis/crossvalidation.html)
+    -   [Cross-validation](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Robustness_analysis/crossvalidation.html)
 
 -   [Benchmark: comparison with other methods to find signatures](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Benchmark/Benchmark.html)
 
