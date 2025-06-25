@@ -450,8 +450,6 @@ The result of this analysis is reported in **Figure 4C.**
 
 ```{r phenoplot, eval = FALSE }
 
-
-
 # Load clinical data and extract patient IDs
 clinical_dataframe <- read_tsv("../Step1/clinical_dataframe.tsv")
 rownames(clinical_dataframe) <- clinical_dataframe$Name
@@ -488,95 +486,19 @@ for (r in seq_along(pat_names)) {
 nodes_total <- bind_rows(nodes_list)  # Obtain total nodes
 
 
-######################### GSEA on CPTAC patients
-
-
-set.seed(1234)
-
-# Load cluster signatures from Excel files
-clusters <- paste0("signature_community_", 1:7, ".tsv")
-cluster_signatures <- lapply(clusters, function(file) unique(read_tsv(file)$gene_name))
-names(cluster_signatures) <- paste0("CL", 1:7)
-
-# Create a combined list of unique genes across all clusters
-CL <- unique(unlist(cluster_signatures))
-
-# Initialize the global enrichment results table
-global_table_enrichment_final <- data.frame(patient_id = character(),
-                                            pathway = character(),
-                                            analysis_type = character())
-
-# List of analysis types
-analysis_name_list <- c("transcriptomics")
-
-
-
-# Iterate through each analysis type
-for (analysis_name in analysis_name_list) {
-  
-  # Initialize the dataframe to store enrichment results for all patients
-  global_table_enrichment <- data.frame(patient_id = character(),
-                                        ES = numeric(),
-                                        NES = numeric(),
-                                        size = integer(),
-                                        leadingEdge = character())
-  
-  # Load transcriptomics data and compute the mean expression for each gene
-  omic_CPTAC <- read_tsv("Transcriptomics_updated_CPTAC_coding.tsv")
-  omic_CPTAC <- aggregate(omic_CPTAC[, -1], by = list(Name = omic_CPTAC$gene_name), mean)
-  
-  # Process each patient
-  for (i in 2:ncol(omic_CPTAC)) {
-    patient_id <- colnames(omic_CPTAC)[i]
-    
-    # Select expression data for the current patient and remove NA values
-    omic_CPTAC_i <- omic_CPTAC[, c(1, i)] %>% drop_na()
-    
-    # Sort genes by expression level (descending order)
-    omic_CPTAC_i_or <- omic_CPTAC_i %>% dplyr::arrange(desc(.[[2]]))
-    rownames(omic_CPTAC_i_or) <- omic_CPTAC_i_or$Name
-    gene_expression_list <- setNames(omic_CPTAC_i_or[[2]], rownames(omic_CPTAC_i_or))
-    
-    # Perform Gene Set Enrichment Analysis (GSEA)
-    results <- fgseaMultilevel(cluster_signatures, gene_expression_list, scoreType = 'std')
-    results$patient_id <- patient_id
-    
-    # Convert `leadingEdge` from a list to a string to avoid errors in bind_rows()
-    results$leadingEdge <- sapply(results$leadingEdge, function(x) paste(x, collapse = ","))
-    
-    # Merge results into the global enrichment table
-    global_table_enrichment <- bind_rows(global_table_enrichment, results)
-  }
-}
-
-write_excel(global_table_enrichment, "transcriptomics_signature_enrichment_communities_cptac.xlsx")
-
-
-# Filter and save significant enrichment results
-global_table_enrichment <- global_table_enrichment %>%
-  dplyr::select(pathway, NES, padj, patient_id) 
-
-global_table_enrichment_sign <- global_table_enrichment %>%
-  dplyr::group_by(patient_id) %>%
-  dplyr::filter((pathway %in% c("CL2", "CL3", "CL4", "CL7") & NES > 0) | 
-           (pathway %in% c("CL1", "CL5", "CL6") & NES > 1)) %>%
-  dplyr::slice_max(order_by = NES, n = 1) %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(padj <= 0.01)  %>% 
-  dplyr::select(patient_id, pathway) %>% 
-  dplyr::rename(patient_ID = patient_id)
+global_table_enrichment_sign <- read_tsv("../Step4/patients_cluster.tsv")
 
 
 # Extract phenotype scores from nodes_total
 NMF <- nodes_total %>%
   dplyr::filter(method == "phenoscore") %>%
   dplyr::select(gene_name, final_score, NMF.Cluster, patient_ID) 
- 
+
 
 # Merge phenotype scores with enrichment results
 NMF <- NMF %>%
   dplyr::left_join(global_table_enrichment_sign, by = c("patient_ID")) %>%  
-  dplyr::mutate(pathway = na_if(pathway, "NA"))
+  dplyr::mutate(community = na_if(community, "NA"))
 
 
 # Define a function for symmetric log transformation
@@ -587,7 +509,7 @@ symlog <- function(x, base = 2) {
 
 # Apply transformations and filter data for visualization
 NMF <- NMF %>%
-  filter(!is.na(final_score), !is.na(pathway)) %>%  # Remove missing values
+  filter(!is.na(final_score), !is.na(community)) %>%  # Remove missing values
   filter(!gene_name %in% c("TELOMERE MAINTENANCE")) %>%  # Exclude specific genes
   mutate(
     final_score_transformed = ifelse(
@@ -599,25 +521,25 @@ NMF <- NMF %>%
 
 
 # Generate a jitter-boxplot visualization
-ggplot(NMF, aes(x = gene_name, y = final_score_transformed, fill = pathway)) +
-  geom_jitter(aes(colour = pathway), position = position_dodge(width = 0.75), size = 0.75) +
+p <- ggplot(NMF, aes(x = gene_name, y = final_score_transformed, fill = community)) +
+  geom_jitter(aes(colour = community), position = position_dodge(width = 0.75), size = 0.75) +
   geom_boxplot(alpha = 0.85, outlier.colour = NA) +  # Remove outlier colors
   scale_color_manual(values = 
-                       c("CL1" = "grey",
-                         "CL2" = "#59BDB2",
-                         "CL3" = "#E7DBAE", 
-                         "CL4" = "#F4A2A4", 
-                         "CL5" = "#E94587", 
-                         "CL6" = "#9CCEE3", 
-                         "CL7" =  "#6B2B68")) +
+                       c("community_1" = "grey",
+                         "community_2" = "#59BDB2",
+                         "community_3" = "#E7DBAE", 
+                         "community_4" = "#F4A2A4", 
+                         "community_5" = "#E94587", 
+                         "community_6" = "#9CCEE3", 
+                         "community_7" =  "#6B2B68")) +
   scale_fill_manual(values = c(
-    "CL1" = "grey",
-    "CL2" = "#59BDB2",
-    "CL3" = "#E7DBAE", 
-    "CL4" = "#F4A2A4", 
-    "CL5" = "#E94587", 
-    "CL6" = "#9CCEE3", 
-    "CL7" =  "#6B2B68")) +
+    "community_1" = "grey",
+    "community_2" = "#59BDB2",
+    "community_3" = "#E7DBAE", 
+    "community_4" = "#F4A2A4", 
+    "community_5" = "#E94587", 
+    "community_6" = "#9CCEE3", 
+    "community_7" =  "#6B2B68")) +
   coord_flip() +
   theme(
     axis.line = element_line(colour = "gray51", size = 0.3, linetype = "solid"),
@@ -628,6 +550,8 @@ ggplot(NMF, aes(x = gene_name, y = final_score_transformed, fill = pathway)) +
   ylab("Phenotype modulation (power-log scale)") +
   theme_classic() +
   ggtitle("Phenoscore NMF (Power-Log Scale)") -> phenoplot  # Save plot to `phenoplot`
+
+p
 
 ```
 
