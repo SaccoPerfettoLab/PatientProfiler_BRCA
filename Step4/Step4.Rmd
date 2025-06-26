@@ -33,7 +33,7 @@ write_tsv(clinical_dataframe.T, "./input_communities/patients_stratification.tsv
 
 generate_communities(dir_path = "./input_communities", 
                      network_dir = "../Step3/Networks_output",
-                     output_dir = "./output_communities",
+                     output_dir = "./Communities/output_communities",
                      local = FALSE)
 
 
