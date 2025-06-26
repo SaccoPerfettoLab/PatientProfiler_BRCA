@@ -51,8 +51,8 @@ extract_cohort_activity(
                         prot_dir = "./Prot_patients/", 
                         trans_dir = "./Transc_patients/",
                         phospho_dir = "./Phospho_patients/", 
-                        tf_params, 
-                        kin_params,
+                        tf_params = list(hypergeom_corr = FALSE, correct_proteomics = FALSE)
+                        kin_params = list(hypergeom_corr = FALSE, correct_proteomics = TRUE),
                         output_dir = "Activities"
                         )
 

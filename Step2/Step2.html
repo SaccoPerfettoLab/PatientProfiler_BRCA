@@ -386,8 +386,8 @@ extract_cohort_activity(
                         prot_dir = &quot;./Prot_patients/&quot;, 
                         trans_dir = &quot;./Transc_patients/&quot;,
                         phospho_dir = &quot;./Phospho_patients/&quot;, 
-                        tf_params, 
-                        kin_params,
+                        tf_params = list(hypergeom_corr = FALSE, correct_proteomics = FALSE)
+                        kin_params = list(hypergeom_corr = FALSE, correct_proteomics = TRUE),
                         output_dir = &quot;Activities&quot;
                         )</code></pre>
 </div>
@@ -1117,23 +1117,29 @@ for (i in seq_len(total_patients)) {
       }
     }
     
-    # Retrieve UNIPROT values
-    Patient_updated &lt;- retrieve_primary_gene_name(omic_df = Patient, gn_idx = 2, sequence = FALSE)
+
+    df_for_ids &lt;- SignalingProfiler::PKN_proteins_human
+    
   
-    Patient_updated &lt;- rename(Patient_updated, UNIPROT = UNIPROT.y) %&gt;% select(-UNIPROT.x)
-    Patient_def &lt;- left_join(Patient, Patient_updated, by = &quot;gene_name&quot;, suffix = c(&quot;.old&quot;, &quot;.new&quot;))
+    # Step 1: Find the rows in Patient where UNIPROT is NA
+    missing_uniprot &lt;- is.na(Patient$UNIPROT)
     
-    Patient_def &lt;- Patient_def %&gt;%
-      mutate(
-        UNIPROT = coalesce(UNIPROT.new, UNIPROT.old),
-        mf = coalesce(mf.new, mf.old),
-        final_score = coalesce(final_score.new, final_score.old),
-        method = coalesce(method.new, method.old)
-      ) %&gt;%
-      select(UNIPROT, gene_name, mf, final_score, method)
-    
+    # Step 2: For the rows with NA in UNIPROT, search for the match between gene_name and ENTITY in df_for_ids
+    for (i in which(missing_uniprot)) {
+      # Find the gene_name in Patient corresponding to ENTITY in df_for_ids
+      gene_name_patient &lt;- Patient$gene_name[i]
+      
+      # Find the matching ID in df_for_ids based on the ENTITY
+      matching_id &lt;- df_for_ids$ID[df_for_ids$ENTITY == gene_name_patient]
+      
+      # If a match is found, update the UNIPROT field
+      if (length(matching_id) &gt; 0) {
+        Patient$UNIPROT[i] &lt;- matching_id[1]  # In case of multiple matches, take the first one
+      }
+    }
+  
     output_file &lt;- paste0(&quot;Activities/Activity_constraints_Patient_&quot;, patient_id, &quot;.tsv&quot;)
-    write_tsv(Patient_def, output_file)
+    write_tsv(Patient, output_file)
   }
 }</code></pre>
 </div>
