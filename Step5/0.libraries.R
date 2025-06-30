@@ -1,7 +1,7 @@
 # List of required packages
 packages <- c(
-  "PatientProfiler", "tidyverse", "readxl", "ggeasy", "ggpubr", "fgsea", "ggplot2",
-  "cowplot", "writexl", "igraph", "stringr", "httr", "plyr", "pheatmap", 
+  "PatientProfiler", "tidyverse", "readxl", "ggeasy", "ggpubr", "broom", "fgsea", "ggplot2",
+  "cowplot", "writexl", "igraph", "stringr", "httr", "plyr", "pheatmap", "purrr",
   "dendextend", "RColorBrewer", "broom", "GGally", "devtools", "ggfortify", 
   "ggrepel", "TCGAbiolinks", "dplyr", "readr", "survival", "survminer", 
   "gridExtra", "org.Hs.eg.db", "fs"
