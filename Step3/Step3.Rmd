@@ -356,9 +356,9 @@ nodes_total <- bind_rows(nodes_list)
 
 # Filter nodes with method "phenoscore" and select relevant columns
 NMF <- nodes_total %>%
-  filter(method == "phenoscore") %>%
-  select(gene_name, final_score, NMF.Cluster) %>%
-  filter(!gene_name %in% c("TELOMERE MAINTENANCE"))
+  dplyr::filter(method == "phenoscore") %>%
+  dplyr::select(gene_name, final_score, NMF.Cluster) %>%
+  dplyr::filter(!gene_name %in% c("TELOMERE MAINTENANCE"))
 
 # Define a symmetric logarithmic transformation function
 symlog <- function(x, base = 2) {
@@ -377,24 +377,56 @@ NMF <- NMF %>%
 cluster_colors <- c("Basal-I" = "brown", "HER2-I" = "darkgoldenrod", 
                     "LumB-I" = "chartreuse4", "LumA-I" = "deepskyblue4")
 
-# Create the plot
+
+
+anova_results <- NMF %>%
+  dplyr::group_by(gene_name) %>%
+  do(tidy(aov(final_score_transformed ~ NMF.Cluster, data = .))) %>%
+  dplyr::filter(term == "NMF.Cluster") %>%
+  ungroup() %>%
+  dplyr::mutate(
+    p.adj = p.adjust(p.value, method = "BH"),
+    significance = case_when(
+      p.adj < 0.001 ~ "***",
+      p.adj < 0.01 ~ "**",
+      p.adj < 0.05 ~ "*",
+      TRUE ~ "ns"
+    )
+  ) %>%
+  dplyr::select(gene_name, p.adj, significance)
+
+y_max <- NMF %>%
+  dplyr::group_by(gene_name) %>%
+  dplyr::summarise(y.position = max(final_score_transformed, na.rm = TRUE) + 0.5)
+
+anova_labels <- left_join(anova_results, y_max, by = "gene_name")
+
+
 phenoplot <- ggplot(NMF, aes(x = gene_name, y = final_score_transformed, fill = NMF.Cluster)) +
-  geom_boxplot(alpha = 0.85, outlier.shape = NA) +  # Boxplot without visible outliers
-  geom_jitter(aes(colour = NMF.Cluster), position = position_dodge(width = 0.75), size = 0.75) +
-  scale_color_manual(values = cluster_colors) +
+  geom_boxplot(alpha = 0.85, outlier.shape = NA) +
+  geom_jitter(aes(color = NMF.Cluster), position = position_dodge(width = 0.75), size = 0.75) +
+  geom_text(
+    data = anova_labels,
+    aes(x = gene_name, y = y.position, label = significance),
+    inherit.aes = FALSE,
+    size = 3.5
+  ) +
   scale_fill_manual(values = cluster_colors) +
+  scale_color_manual(values = cluster_colors) +
   coord_flip() +
   theme_classic() +
   theme(
-    axis.line = element_line(colour = "gray51", size = 0.3),
-    axis.text.x = element_text(face = "bold", color = "black", size = 10),
-    axis.text.y = element_text(face = "bold", color = "black", size = 10)
+    axis.line = element_line(color = "gray51", size = 0.3),
+    axis.text.x = element_text(color = "black", size = 10),
+    axis.text.y = element_text(color = "black", size = 10)
   ) +
   labs(
     title = "Phenoscore NMF (Power-Log Scale)",
     x = "Phenotype",
     y = "Phenotype modulation (power-log scale)"
   )
+
+phenoplot
 
 
 
