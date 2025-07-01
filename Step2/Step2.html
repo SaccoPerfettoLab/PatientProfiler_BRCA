@@ -1143,6 +1143,45 @@ for (i in seq_len(total_patients)) {
   }
 }</code></pre>
 </div>
+<div id="table-2" class="section level2">
+<h2>Table 2</h2>
+<pre class="r"><code>clinical_dataframe &lt;- read_tsv(&quot;../Step1/clinical_dataframe.tsv&quot;)
+rownames(clinical_dataframe) &lt;- clinical_dataframe$Name
+clinical_dataframe.T &lt;- as.data.frame(t(clinical_dataframe))[-1, ]
+clinical_dataframe.T &lt;- clinical_dataframe.T[, c(&quot;Replicate_Measurement_IDs&quot;,&quot;NMF.Cluster&quot;)]  # Solo nmf_cluster
+clinical_dataframe.T$patient_ID &lt;- rownames(clinical_dataframe.T)
+
+pat_names &lt;- clinical_dataframe.T$patient_ID
+
+Tabella_totale_risk &lt;- bind_rows(lapply(seq_along(pat_names), function(i) {
+  message(i)
+  patient_id &lt;- pat_names[i]
+  
+  path_constraints &lt;- paste0(&quot;./Activities/Activity_constraints_Patient_&quot;, patient_id, &quot;.tsv&quot;)
+  path_standard &lt;- paste0(&quot;./Activities/Activity_Patient_&quot;, patient_id, &quot;.tsv&quot;)
+  
+  if (file.exists(path_constraints)) {
+    pat_data &lt;- read_tsv(path_constraints)
+  } else if (file.exists(path_standard)) {
+    pat_data &lt;- read_tsv(path_standard)
+  } else {
+    return(NULL)
+  }
+  
+  replicate_id &lt;- as.character(clinical_dataframe.T[patient_id, &quot;Replicate_Measurement_IDs&quot;])
+  nmf_cluster  &lt;- as.character(clinical_dataframe.T[patient_id, &quot;NMF.Cluster&quot;])
+  
+  pat_data &lt;- cbind(Replicate_Measurement_IDs = rep(replicate_id, nrow(pat_data)),
+                    NMF.Cluster = rep(nmf_cluster, nrow(pat_data)),
+                    pat_data)
+  return(pat_data)
+}))
+
+Tabella_totale_risk &lt;- distinct(Tabella_totale_risk)
+
+
+write_xlsx(Tabella_totale_risk, &quot;Table_2.xlsx&quot;)</code></pre>
+</div>
 
 
 
