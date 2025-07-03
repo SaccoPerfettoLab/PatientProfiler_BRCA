@@ -185,62 +185,9 @@ write_tsv(Transcriptomics_cptac, "Transcriptomics_updated_CPTAC_coding.tsv")
 # 2. EXTRACT SIGNATURES FROM CPTAC TRANSCRIPTOMICS
 #===========================
 
-
-#Run for communities 2, 3,4 , 7
-extract_signatures(base_path = "../Step4/Communities/output_communities/",        
-                          transcriptomics_file = "./Transcriptomics_updated_CPTAC_coding.tsv", 
-                          output_dir = "./Run_for_communities_2_3_4_7",
-                          diff_thres = 0.7)
-
-#Run for communities 1, 5, 6
 extract_signatures(base_path = "../Step4/Communities/output_communities/",        
                    transcriptomics_file = "./Transcriptomics_updated_CPTAC_coding.tsv", 
-                   output_dir = "./Run_for_communities_1_5_6",
-                   diff_thres = 0.5)
-
-# Define source directories
-parent_dir_1 <- "./Run_for_communities_1_5_6"
-parent_dir_2 <- "./Run_for_communities_2_3_4_7"
-
-dir_1 <- file.path(parent_dir_1, "Signatures")
-dir_2 <- file.path(parent_dir_2, "Signatures")
-
-# Define the files to extract
-files_1 <- c("signature_community_1.tsv", "signature_community_5.tsv", "signature_community_6.tsv")
-files_2 <- c("signature_community_2.tsv", "signature_community_3.tsv", "signature_community_4.tsv", "signature_community_7.tsv")
-
-# Define the destination directory
-dest_dir <- "./"  
-
-# Function to move files 
-move_files <- function(file_list, source_dir, destination_dir) {
-  for (file in file_list) {
-    source_path <- file.path(source_dir, file)
-    dest_path <- file.path(destination_dir, file)
-    
-    # Check if the file exists before moving
-    if (file_exists(source_path)) {
-      file_move(source_path, dest_path)
-      cat("Moved:", file, "to", destination_dir, "\n")
-    } else {
-      cat("File not found:", file, "\n")
-    }
-  }
-}
-
-# Move the required files
-move_files(files_1, dir_1, dest_dir)
-move_files(files_2, dir_2, dest_dir)
-
-# Delete the directories, including their parent folders
-if (dir_exists(parent_dir_1)) {
-  dir_delete(parent_dir_1)
-  cat("Deleted directory:", parent_dir_1, "\n")
-}
-if (dir_exists(parent_dir_2)) {
-  dir_delete(parent_dir_2)
-  cat("Deleted directory:", parent_dir_2, "\n")
-}
+                   output_dir = "./")
 
 
 # ===========================
@@ -251,7 +198,7 @@ if (dir_exists(parent_dir_2)) {
 set.seed(1234)
 
 # Load cluster signatures from files
-clusters <- paste0("signature_community_", 1:7, ".tsv")
+clusters <- paste0("Signatures/signature_community_", 1:7, ".tsv")
 cluster_signatures <- lapply(clusters, function(file) unique(read_tsv(file)$gene_name))
 names(cluster_signatures) <- paste0("CL", 1:7)
 
@@ -384,6 +331,7 @@ write_xlsx(global_table_enrichment, paste0(analysis_name, "_signature_enrichment
 
 # Filter significant enrichment results
 global_table_enrichment_sign <- global_table_enrichment %>%
+  dplyr::filter(NES > 0)
   group_by(patient_id) %>%
   slice_max(order_by = NES, n = 1) %>%
   ungroup() %>%

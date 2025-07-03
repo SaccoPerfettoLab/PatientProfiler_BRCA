@@ -383,62 +383,9 @@ write_tsv(Transcriptomics_cptac, &quot;Transcriptomics_updated_CPTAC_coding.tsv&
 # 2. EXTRACT SIGNATURES FROM CPTAC TRANSCRIPTOMICS
 #===========================
 
-
-#Run for communities 2, 3,4 , 7
-extract_signatures(base_path = &quot;../Step4/Communities/output_communities/&quot;,        
-                          transcriptomics_file = &quot;./Transcriptomics_updated_CPTAC_coding.tsv&quot;, 
-                          output_dir = &quot;./Run_for_communities_2_3_4_7&quot;,
-                          diff_thres = 0.7)
-
-#Run for communities 1, 5, 6
 extract_signatures(base_path = &quot;../Step4/Communities/output_communities/&quot;,        
                    transcriptomics_file = &quot;./Transcriptomics_updated_CPTAC_coding.tsv&quot;, 
-                   output_dir = &quot;./Run_for_communities_1_5_6&quot;,
-                   diff_thres = 0.5)
-
-# Define source directories
-parent_dir_1 &lt;- &quot;./Run_for_communities_1_5_6&quot;
-parent_dir_2 &lt;- &quot;./Run_for_communities_2_3_4_7&quot;
-
-dir_1 &lt;- file.path(parent_dir_1, &quot;Signatures&quot;)
-dir_2 &lt;- file.path(parent_dir_2, &quot;Signatures&quot;)
-
-# Define the files to extract
-files_1 &lt;- c(&quot;signature_community_1.tsv&quot;, &quot;signature_community_5.tsv&quot;, &quot;signature_community_6.tsv&quot;)
-files_2 &lt;- c(&quot;signature_community_2.tsv&quot;, &quot;signature_community_3.tsv&quot;, &quot;signature_community_4.tsv&quot;, &quot;signature_community_7.tsv&quot;)
-
-# Define the destination directory
-dest_dir &lt;- &quot;./&quot;  
-
-# Function to move files 
-move_files &lt;- function(file_list, source_dir, destination_dir) {
-  for (file in file_list) {
-    source_path &lt;- file.path(source_dir, file)
-    dest_path &lt;- file.path(destination_dir, file)
-    
-    # Check if the file exists before moving
-    if (file_exists(source_path)) {
-      file_move(source_path, dest_path)
-      cat(&quot;Moved:&quot;, file, &quot;to&quot;, destination_dir, &quot;\n&quot;)
-    } else {
-      cat(&quot;File not found:&quot;, file, &quot;\n&quot;)
-    }
-  }
-}
-
-# Move the required files
-move_files(files_1, dir_1, dest_dir)
-move_files(files_2, dir_2, dest_dir)
-
-# Delete the directories, including their parent folders
-if (dir_exists(parent_dir_1)) {
-  dir_delete(parent_dir_1)
-  cat(&quot;Deleted directory:&quot;, parent_dir_1, &quot;\n&quot;)
-}
-if (dir_exists(parent_dir_2)) {
-  dir_delete(parent_dir_2)
-  cat(&quot;Deleted directory:&quot;, parent_dir_2, &quot;\n&quot;)
-}
+                   output_dir = &quot;./&quot;)
 
 
 # ===========================
@@ -449,7 +396,7 @@ if (dir_exists(parent_dir_2)) {
 set.seed(1234)
 
 # Load cluster signatures from files
-clusters &lt;- paste0(&quot;signature_community_&quot;, 1:7, &quot;.tsv&quot;)
+clusters &lt;- paste0(&quot;Signatures/signature_community_&quot;, 1:7, &quot;.tsv&quot;)
 cluster_signatures &lt;- lapply(clusters, function(file) unique(read_tsv(file)$gene_name))
 names(cluster_signatures) &lt;- paste0(&quot;CL&quot;, 1:7)
 
@@ -582,6 +529,7 @@ write_xlsx(global_table_enrichment, paste0(analysis_name, &quot;_signature_enric
 
 # Filter significant enrichment results
 global_table_enrichment_sign &lt;- global_table_enrichment %&gt;%
+  dplyr::filter(NES &gt; 0)
   group_by(patient_id) %&gt;%
   slice_max(order_by = NES, n = 1) %&gt;%
   ungroup() %&gt;%
