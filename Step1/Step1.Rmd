@@ -132,8 +132,7 @@ Protein expression level of known biomarkers in different subtypes, after data m
 The result of this analysis is reported in **Figure 2F.**
 
 
-```{r Expression level of known biomarkers, eval = TRUE}
-
+```{r Expression level of known biomarkers, eval = FALSE}
 
 clinical_dataframe <- read_tsv("clinical_dataframe.tsv") %>%
   column_to_rownames("Name") %>%
@@ -141,7 +140,6 @@ clinical_dataframe <- read_tsv("clinical_dataframe.tsv") %>%
   as.data.frame() %>%
   dplyr::select(Stage, NMF.Cluster) %>%
   mutate(patient_ID = rownames(.))
-
 
 proteomics <- read_tsv("Proteomics_updated.tsv") %>%
   dplyr::select(-1)
@@ -151,71 +149,41 @@ data_long_proteo <- proteomics %>%
 
 table_summary_proteo <- merge(clinical_dataframe, data_long_proteo, by = "patient_ID")
 
-# Forza l'ordine dei livelli
 NMF.Cluster <- c("Basal-I", "HER2-I", "LumA-I", "LumB-I")
 table_summary_proteo$NMF.Cluster <- factor(table_summary_proteo$NMF.Cluster, levels = NMF.Cluster)
 
-# 🎨 Colori e setup
 my_colors <- c("Basal-I" = "brown", "HER2-I" = "darkgoldenrod", 
                "LumB-I" = "chartreuse4", "LumA-I" = "deepskyblue4")
 
 known_biomarkers <- c("ESR1", "PGR", "ERBB2", "TOP2A")
-plot_list <- list()
 
-comparisons <- list(
-  c("Basal-I", "HER2-I"),
-  c("HER2-I", "LumA-I"),
-  c("LumA-I", "LumB-I"),
-  c("Basal-I", "LumA-I"),
-  c("HER2-I", "LumB-I"),
-  c("LumB-I", "Basal-I")
-)
+plot_list <- list()
 
 for (gene_i in known_biomarkers) {
   cat("Processing:", gene_i, "\n")
   
-  table_summary_gene <- table_summary_proteo %>% filter(gene_name == gene_i)
-  table_summary_gene$NMF.Cluster <- factor(table_summary_gene$NMF.Cluster, levels = NMF.Cluster)
+  table_summary_gene <- table_summary_proteo %>%
+    filter(gene_name == gene_i)
   
-  if (nrow(table_summary_gene) >= length(unique(table_summary_gene$NMF.Cluster))) {
+  if (n_distinct(table_summary_gene$NMF.Cluster) > 1) {
+    table_summary_gene$NMF.Cluster <- factor(table_summary_gene$NMF.Cluster, levels = NMF.Cluster)
     
-    res_aov <- aov(z_score ~ NMF.Cluster, data = table_summary_gene)
+    # ANOVA + post-hoc con rstatix
+    res.aov <- table_summary_gene %>% anova_test(z_score ~ NMF.Cluster)
+    tukey_result <- table_summary_gene %>% tukey_hsd(z_score ~ NMF.Cluster)
+    tukey_result <- tukey_result %>% add_xy_position(x = "NMF.Cluster")
     
-    if (summary(res_aov)[[1]][["Pr(>F)"]][1] < 0.05) {
-      
-      tukey_df <- TukeyHSD(res_aov)$NMF.Cluster %>%
-        as.data.frame() %>%
-        rownames_to_column("comparison") %>%
-        separate(comparison, into = c("group1", "group2"), sep = "(?<=-I)-") %>%
-        mutate(
-          group1 = as.character(group1),
-          group2 = as.character(group2),
-          Signif = case_when(
-            `p adj` < 0.001 ~ "***",
-            `p adj` < 0.01 ~ "**",
-            `p adj` < 0.05 ~ "*",
-            TRUE ~ "-"
-          ),
-          comp_key = map2_chr(group1, group2, ~ paste(sort(c(.x, .y)), collapse = "_"))
-        )
-      
-      comparison_keys <- map_chr(comparisons, ~ paste(sort(.x), collapse = "_"))
-      
-      annotations <- map_chr(comparison_keys, function(key) {
-        match_row <- tukey_df %>% filter(comp_key == key)
-        if (nrow(match_row) == 1) as.character(match_row$Signif[[1]]) else "-"
-      })
-      
-      plot_list[[gene_i]] <- ggplot(table_summary_gene, aes(x = NMF.Cluster, y = z_score, fill = NMF.Cluster)) +
-        ggtitle(gene_i) +
-        geom_boxplot() +
-        scale_fill_manual(values = my_colors) +
-        theme_classic() +
-        geom_signif(comparisons = comparisons,
-                    map_signif_level = FALSE,
-                    annotations = annotations,
-                    y_position = seq(3, 5, length.out = length(comparisons)))
-    }
+    plot_i <- ggboxplot(table_summary_gene, x = "NMF.Cluster", y = "z_score", fill = "NMF.Cluster") +
+      stat_pvalue_manual(tukey_result, hide.ns = TRUE) +
+      scale_fill_manual(values = my_colors) +
+      theme_classic() +
+      labs(
+        title = gene_i,
+        subtitle = get_test_label(res.aov, detailed = TRUE),
+        caption = get_pwc_label(tukey_result)
+      )
+    
+    plot_list[[gene_i]] <- plot_i
   }
 }
 
@@ -228,3 +196,4 @@ if (length(plot_list) > 0) {
 
 ```
 
+![](images/2F.png)
