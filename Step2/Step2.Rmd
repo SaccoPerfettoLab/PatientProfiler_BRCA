@@ -264,22 +264,20 @@ for (i in seq_len(total_patients)) {
 clinical_dataframe <- read_tsv("../Step1/clinical_dataframe.tsv")
 rownames(clinical_dataframe) <- clinical_dataframe$Name
 clinical_dataframe.T <- as.data.frame(t(clinical_dataframe))[-1, ]
-clinical_dataframe.T <- clinical_dataframe.T[, c("Replicate_Measurement_IDs","NMF.Cluster")]  # Solo nmf_cluster
+clinical_dataframe.T <- clinical_dataframe.T[, c("Replicate_Measurement_IDs", "NMF.Cluster")]
 clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)
 
 pat_names <- clinical_dataframe.T$patient_ID
 
-Tabella_totale_risk <- bind_rows(lapply(seq_along(pat_names), function(i) {
+Total_table <- bind_rows(lapply(seq_along(pat_names), function(i) {
   message(i)
   patient_id <- pat_names[i]
   
-  path_constraints <- paste0("./Activities/Activity_constraints_Patient_", patient_id, ".tsv")
-  path_standard <- paste0("./Activities/Activity_Patient_", patient_id, ".tsv")
+  path <- paste0("./Activities/Activity_Patient_", patient_id, ".tsv")
   
-  if (file.exists(path_constraints)) {
-    pat_data <- read_tsv(path_constraints)
-  } else if (file.exists(path_standard)) {
-    pat_data <- read_tsv(path_standard)
+  # Se il file esiste, leggi i dati
+  if (file.exists(path)) {
+    pat_data <- read_tsv(path)
   } else {
     return(NULL)
   }
@@ -287,16 +285,27 @@ Tabella_totale_risk <- bind_rows(lapply(seq_along(pat_names), function(i) {
   replicate_id <- as.character(clinical_dataframe.T[patient_id, "Replicate_Measurement_IDs"])
   nmf_cluster  <- as.character(clinical_dataframe.T[patient_id, "NMF.Cluster"])
   
-  pat_data <- cbind(Replicate_Measurement_IDs = rep(replicate_id, nrow(pat_data)),
-                    NMF.Cluster = rep(nmf_cluster, nrow(pat_data)),
-                    pat_data)
+  pat_data <- cbind(
+    Replicate_Measurement_IDs = rep(replicate_id, nrow(pat_data)),
+    NMF.Cluster = rep(nmf_cluster, nrow(pat_data)),
+    pat_data
+  )
+  
   return(pat_data)
 }))
 
-Tabella_totale_risk <- distinct(Tabella_totale_risk)
+Total_table <- distinct(Total_table)
+
+Total_table <- Total_table %>%
+  dplyr::rename(
+    patient_ID = Replicate_Measurement_IDs,
+    Subtype = NMF.Cluster
+  )
 
 
-write_xlsx(Tabella_totale_risk, "Table_2.xlsx")
+write_xlsx(list("Sheet1" = Total_table), "Table_2.xlsx")
+
+
 
 ```
 
