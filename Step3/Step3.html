@@ -391,7 +391,6 @@ create_cohort_networks(trans_dir = &#39;./Transc_patients/&#39;,
                       naive_options =list(layers = 2, max_length = c(1, 4), connect_all = TRUE, naive_path = paste0(output_dir, &#39;/Naive_&#39;)), 
                       carnival_options = list(solver = &#39;cplex&#39;, carnival_type = &#39;inverse&#39;, opt_path = paste0(output_dir, &#39;/Opt_&#39;), carnival_params = list()),
                       phenoscore_options = list(pheno_path = paste0(output_dir, &#39;/Pheno_&#39;),
-                                                pheno_distance_table = NULL,
                                                 phenoscore_params = list(
                                                   path_length = 3, stat = &#39;median&#39;, zscore_threshold = -1.96,
                                                   nrandom = 1000, pvalue_threshold = 0.05,

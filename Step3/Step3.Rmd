@@ -46,7 +46,6 @@ create_cohort_networks(trans_dir = './Transc_patients/',
                       naive_options =list(layers = 2, max_length = c(1, 4), connect_all = TRUE, naive_path = paste0(output_dir, '/Naive_')), 
                       carnival_options = list(solver = 'cplex', carnival_type = 'inverse', opt_path = paste0(output_dir, '/Opt_'), carnival_params = list()),
                       phenoscore_options = list(pheno_path = paste0(output_dir, '/Pheno_'),
-                                                pheno_distance_table = NULL,
                                                 phenoscore_params = list(
                                                   path_length = 3, stat = 'median', zscore_threshold = -1.96,
                                                   nrandom = 1000, pvalue_threshold = 0.05,
