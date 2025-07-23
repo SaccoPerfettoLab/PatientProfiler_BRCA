@@ -1,7 +1,6 @@
 ---
-title: "Step2"
+title: "Step2: Protein activity inference"
 output: html_document
-date: "2025-03-10"
 ---
 
 
@@ -17,7 +16,7 @@ source('0.libraries.R')
 
 For each uploaded omic type, a folder with a user-defined name will be
 created. Each folder will contain a file (data frame) for each patient,
-representing the needed omic input needed in SignalingProfiler-compliant
+representing the omic input needed in SignalingProfiler-compliant
 format for the next steps.
 
 
@@ -37,9 +36,9 @@ omics_preparation(
               )
 ```
 
-## Step2: Protein activity inference
+## Step2
 
-To perform the protein activity inference step for all the patients of a
+To perform the protein activity inference's step for all the patients of the breast cancer
 cohort, this function loops on each omic file for each patient and infer
 protein activity.
 
@@ -56,11 +55,59 @@ extract_cohort_activity(
                         output_dir = "Activities"
                         )
 
+
+### Table_3 
+
+clinical_dataframe <- read_tsv("../Step1/clinical_dataframe.tsv")
+rownames(clinical_dataframe) <- clinical_dataframe$Name
+clinical_dataframe.T <- as.data.frame(t(clinical_dataframe))[-1, ]
+clinical_dataframe.T <- clinical_dataframe.T[, c("Replicate_Measurement_IDs", "NMF.Cluster")]
+clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)
+
+pat_names <- clinical_dataframe.T$patient_ID
+
+Total_table <- bind_rows(lapply(seq_along(pat_names), function(i) {
+  message(i)
+  patient_id <- pat_names[i]
+  
+  path <- paste0("./Activities/Activity_Patient_", patient_id, ".tsv")
+  
+  # Se il file esiste, leggi i dati
+  if (file.exists(path)) {
+    pat_data <- read_tsv(path)
+  } else {
+    return(NULL)
+  }
+  
+  replicate_id <- as.character(clinical_dataframe.T[patient_id, "Replicate_Measurement_IDs"])
+  nmf_cluster  <- as.character(clinical_dataframe.T[patient_id, "NMF.Cluster"])
+  
+  pat_data <- cbind(
+    Replicate_Measurement_IDs = rep(replicate_id, nrow(pat_data)),
+    NMF.Cluster = rep(nmf_cluster, nrow(pat_data)),
+    pat_data
+  )
+  
+  return(pat_data)
+}))
+
+Total_table <- distinct(Total_table)
+
+Total_table <- Total_table %>%
+  dplyr::rename(
+    patient_ID = Replicate_Measurement_IDs,
+    Subtype = NMF.Cluster
+  )
+
+
+write_xlsx(list("Sheet1" = Total_table), "Table_3.xlsx")
+
+
 ```
 
 
 
-## FIGURES
+## Figures
 
 Estimated protein activities in individual patients, stratified by subtypes.
 The result of this analysis is reported and readapted in **Figure 2G.**
@@ -79,7 +126,7 @@ clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)
 pat_risk <- clinical_dataframe.T[,-1]
 
 # Initialize final table
-Tabella_totale_risk <- list()
+Total_table <- list()
 
 # Iterate over patient names
 for (i in seq_along(pat_risk$patient_ID)) {
@@ -96,15 +143,15 @@ for (i in seq_along(pat_risk$patient_ID)) {
   patient_file <- cbind(risk_matrix, patient_file)
   
   # Append to final list
-  Tabella_totale_risk[[i]] <- patient_file
+  Total_table[[i]] <- patient_file
 }
 
 # Combine all patient data into a single dataframe
-Tabella_totale_risk <- bind_rows(Tabella_totale_risk) %>% unique()
+Total_table <- bind_rows(Total_table) %>% unique()
 
 
 ## Load data
-activity <- Tabella_totale_risk
+activity <- Total_table
 
 
 # Aggregate data: count occurrences per patient_ID, NMF.Cluster, and mf
@@ -169,7 +216,7 @@ combined_plot <- plot_grid(plotlist = plot_list, ncol = 4, align = 'h', rel_heig
 
 ## Add mutated proteins as constraints
 
-Process patient-activity data by incorporating mutated proteins as constraints
+Patient-activity data are adjusted by integrating mutated proteins as constraints. When a protein is mutated in a patient, its inferred activity is replaced with the corresponding mutation value.
 
 
 ```{r Constraints, eval = FALSE}
@@ -251,68 +298,4 @@ for (i in seq_len(total_patients)) {
   }
 }
 
-
-
-
 ```
-
-
-## Table 2
-
-```{r Table2 generation, eval = FALSE}
-
-clinical_dataframe <- read_tsv("../Step1/clinical_dataframe.tsv")
-rownames(clinical_dataframe) <- clinical_dataframe$Name
-clinical_dataframe.T <- as.data.frame(t(clinical_dataframe))[-1, ]
-clinical_dataframe.T <- clinical_dataframe.T[, c("Replicate_Measurement_IDs", "NMF.Cluster")]
-clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)
-
-pat_names <- clinical_dataframe.T$patient_ID
-
-Total_table <- bind_rows(lapply(seq_along(pat_names), function(i) {
-  message(i)
-  patient_id <- pat_names[i]
-  
-  path <- paste0("./Activities/Activity_Patient_", patient_id, ".tsv")
-  
-  # Se il file esiste, leggi i dati
-  if (file.exists(path)) {
-    pat_data <- read_tsv(path)
-  } else {
-    return(NULL)
-  }
-  
-  replicate_id <- as.character(clinical_dataframe.T[patient_id, "Replicate_Measurement_IDs"])
-  nmf_cluster  <- as.character(clinical_dataframe.T[patient_id, "NMF.Cluster"])
-  
-  pat_data <- cbind(
-    Replicate_Measurement_IDs = rep(replicate_id, nrow(pat_data)),
-    NMF.Cluster = rep(nmf_cluster, nrow(pat_data)),
-    pat_data
-  )
-  
-  return(pat_data)
-}))
-
-Total_table <- distinct(Total_table)
-
-Total_table <- Total_table %>%
-  dplyr::rename(
-    patient_ID = Replicate_Measurement_IDs,
-    Subtype = NMF.Cluster
-  )
-
-
-write_xlsx(list("Sheet1" = Total_table), "Table_2.xlsx")
-
-
-
-```
-
-
-
-
-
-
-
-
