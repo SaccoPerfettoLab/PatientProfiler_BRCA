@@ -1,7 +1,6 @@
 ---
-title: "Step5"
+title: "Step5: Identification of biomarkers"
 output: html_document
-date: "2025-03-13"
 ---
 
 ```{r setup, include=FALSE, eval=TRUE}
@@ -11,9 +10,10 @@ source('0.libraries.R')
 ```
 
 
+```{r download TCGA data, include = FALSE, eval = FALSE}
+
 ## Download and save TCGA clinical and transcriptomic data
 
-```{r download TCGA data, include = FALSE, eval = FALSE}
 # ===========================
 # 1. DOWNLOAD CLINICAL DATA
 # ===========================
@@ -391,7 +391,7 @@ plot
 
 ![](images/5B.svg)
 
-## PHENOPLOT
+## Phenoplot
 
 Activation level (power-log of the PhenoScore) of key hallmark phenotypes in different communities as derived from the mechanistic models.
 The result of this analysis is reported in **Figure 4C.**
@@ -532,9 +532,9 @@ phenoplot
 ![](images/4C.svg)
 
 
-## DIFFERENCE IN PROTEIN LEVELS CL2 vs CL4
+## Difference in protein levels in CL2 vs CL4
 
-Difference in protein levels of CL2 and CL4 nodes extracted from the map in Figure 5A, as derived from the TCGA patients. 
+Difference in protein levels for the nodes of Community 2 and Community 4 extracted from the map in **Figure 5A**, as derived from the TCGA patients. 
 The RPPA_brca file is derived from https://tcpaportal.org/tcpa/download.html.
 The result of this analysis is reported in **Figure 5C.**
 
@@ -656,7 +656,7 @@ TableS4 <- ttest_res_C2_C4_annot %>%
 
 
 
-writexl::write_xlsx(TableS4, "TableS4.xlsx")
+writexl::write_xlsx(TableS4, "Table_C2C4.xlsx")
 
 # order proteins by fold change
 ttest_res_C2_C4_annot <- ttest_res_C2_C4_annot %>%
@@ -704,10 +704,11 @@ plot_nodes
 
 ![](images/5C.svg)
 
-### Table 3
-This code generates Table 3, which summarizes the molecular subtypes and associated transcriptional signatures for patients in the TCGA and CPTAC datasets.
+This code generates teh Supplementary Table 4, which summarizes the molecular subtypes and associated transcriptional signatures (Siganture1-7) for patients in the TCGA and CPTAC. datasets.
 
-```{r table3 generation, eval = FALSE}
+```{r table4 generation, eval = FALSE}
+
+sheets <- excel_sheets("S3_lehman.xlsx")
 
 lehman_data <- read_excel("S3_lehman.xlsx", sheet = sheets[2])
 
@@ -750,7 +751,7 @@ output_list <- list(
   TCGA = tcga_df_clinic
 )
 
-write_xlsx(output_list, path = "Table_3.xlsx")
+write_xlsx(output_list, path = "Table_4.xlsx")
 
 ```
 

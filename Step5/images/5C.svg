@@ -25,13 +25,13 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      inkscape:zoom="0.61535517"
-     inkscape:cx="490.77348"
-     inkscape:cy="359.14219"
-     inkscape:window-width="1920"
-     inkscape:window-height="1027"
+     inkscape:cx="1374.8158"
+     inkscape:cy="328.26571"
+     inkscape:window-width="3440"
+     inkscape:window-height="1313"
      inkscape:window-x="0"
      inkscape:window-y="25"
-     inkscape:window-maximized="1"
+     inkscape:window-maximized="0"
      inkscape:current-layer="layer1" />
   <defs
      id="defs1" />
@@ -41,7 +41,7 @@
      id="layer1">
     <g
        id="g4"
-       transform="matrix(8.5039373,0,0,8.5039373,-395.0486,-1247.8867)">
+       transform="matrix(7.501238,0,0,7.501238,-477.43077,-1052.7478)">
       <image
          width="125.26479"
          height="70.937096"
@@ -60,14 +60,14 @@
     </g>
     <text
        xml:space="preserve"
-       style="font-size:27px;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#808080;stroke:#6c6c6c;stroke-width:0"
-       x="-130.64261"
-       y="246.81052"
+       style="font-size:23.8164px;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#808080;stroke:#6c6c6c;stroke-width:0"
+       x="-244.2009"
+       y="265.70972"
        id="text6-6"><tspan
          sodipodi:role="line"
          id="tspan6-5"
-         style="font-size:27px;fill:#000000;stroke-width:0"
-         x="-130.64261"
-         y="246.81052">                                                  Protein levels of CL2 and CL4 nodes in TCGA patients</tspan></text>
+         style="font-size:23.8164px;fill:#000000;stroke-width:0"
+         x="-244.2009"
+         y="265.70972">                                                  Protein levels of CL2 and CL4 nodes in TCGA patients</tspan></text>
   </g>
 </svg>
