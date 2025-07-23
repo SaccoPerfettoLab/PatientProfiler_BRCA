@@ -1,7 +1,6 @@
 ---
-title: "Step4"
+title: "Step4: Network-based startification"
 output: html_document
-date: "2025-03-12"
 ---
 
 ```{r setup, include=FALSE, eval = FALSE}
@@ -11,14 +10,11 @@ source('0.libraries.R')
 ```
 
 
-## Step4: Network_based stratification
-
 In this step, PatientProfiler extracts communities from the
 patient-specific mechanistic models generated in Step 3.
 
 
 ```{r communities, eval = FALSE}
-
 
 dir.create("./input_communities", showWarnings = FALSE, recursive = TRUE)
 
@@ -28,10 +24,10 @@ clinical_dataframe.T <- as.data.frame(t(clinical_dataframe))[-1, , drop = FALSE]
 clinical_dataframe.T <- clinical_dataframe.T[, c(5, 8), drop = FALSE]
 clinical_dataframe.T$patient_ID <- rownames(clinical_dataframe.T)
 clinical_dataframe.T <- clinical_dataframe.T %>% relocate(patient_ID) %>% dplyr::select (- Stage)
-write_tsv(clinical_dataframe.T, "./input_communities/patients_stratification.tsv")
+write_tsv(clinical_dataframe.T, "./Communities/input_communities/patients_stratification.tsv")
 
 
-generate_communities(dir_path = "./input_communities", 
+generate_communities(dir_path = "./Communities/input_communities", 
                      network_dir = "../Step3/Networks_output",
                      output_dir = "./Communities/output_communities")
 
@@ -40,16 +36,16 @@ generate_communities(dir_path = "./input_communities",
 
 
 
-## FIGURES
+## Figures
 
-Pie charts depicting the subtype composition of each community. 
+Bar plots depicting the subtype composition of each community. 
 The result of this analysis is reported in **Figure 4B.**
 
 
 ```{r communities figures, eval = FALSE}
 
 # Load patient stratification data
-communities_dir <- "./output_communities/"
+communities_dir <- "./Communities/output_communities/"
 community_folders <- list.dirs(path = communities_dir, recursive = FALSE)
 patients_list <- list()
 
@@ -115,7 +111,7 @@ p <- ggplot(count_data, aes(x = community, y = n, fill = NMF.Cluster)) +
 ![](images/4B.svg)
 
 Visualize Community 4 in Cytoscape. 
-The result is reported in **Figure S11.** and **Figure 5A.**
+The result is reported in **Figure S17** and re-adapted in **Figure 5A.**
 
 
 ```{r visualize community, eval = FALSE}
@@ -123,7 +119,7 @@ The result is reported in **Figure S11.** and **Figure 5A.**
 visualize_community(community_4)
 
 ```
-![](images/S11.svg)
+![](images/S17.svg)
 
 
 
