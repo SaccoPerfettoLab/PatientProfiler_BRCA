@@ -1,27 +1,20 @@
+# List of required packages
+packages <- c(
+  "PatientProfiler", "broom", "cowplot", "dendextend", "devtools", "fgsea",
+  "GGally", "ggeasy", "ggfortify", "ggplot2", "ggpubr", "ggrepel", "httr",
+  "igraph", "plyr", "pheatmap", "readxl", "rstatix", "RColorBrewer",
+  "stringr", "tidyverse", "writexl"
+)
 
-library(PatientProfiler)
+# Function to check and install missing packages
+install_if_missing <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+}
 
-library(tidyverse)
-library(readxl)
-library(ggeasy)
-library("ggpubr")
-library(fgsea)
-library(ggplot2)
-library(cowplot)
+# Apply the function to all packages
+lapply(packages, install_if_missing)
 
-library(readxl)
-library(writexl)
-
-library(broom)
-library(igraph)
-library("stringr")
-library(httr)
-library(plyr)
-library(pheatmap)
-library(dendextend)
-library(RColorBrewer)
-library(broom)
-library(GGally)
-library(devtools)
-library(ggfortify)
-library(ggrepel)
+# Load all packages
+lapply(packages, library, character.only = TRUE)

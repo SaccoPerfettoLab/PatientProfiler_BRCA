@@ -1,7 +1,6 @@
 ---
-title: "Step3"
+title: "Step3: Generation of mechanistic models"
 output: html_document
-date: "2025-03-11"
 ---
 
 ```{r setup, include=FALSE, eval = TRUE}
@@ -10,11 +9,10 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 source('0.libraries.R')
 ```
 
-## Step3: Generation of mechanistic models
 
 In this step, PatientProfiler creates for each patient a causal network connecting mutated genes to a user-defined set of cellular functional traits (e.g., APOPTOSIS, PROLIFERATION).
 
-Importantly, this step requires a mutations file where rows are patients and columns are genes, and each cell is the impact on protein function of the mutation. File is generated in Step1.
+Importantly, this step requires a mutations file where rows are patients and columns are genes, and each cell is the impact on protein function of the mutation. File is generated in Step1 (Brca_mutations.tsv and Table_2.xlsx)
 
 ```{r networks, eval = FALSE}
 
@@ -22,10 +20,10 @@ output_dir <- 'Networks_output'
 network_params <- initialize_net_default_params(output_dir)
 
 
-create_cohort_networks(trans_dir = './Transc_patients/',
-                      prot_dir = './Prot_patients/',
-                      phospho_dir = './Phospho_patients/',
-                      act_dir = './Activities/',
+create_cohort_networks(trans_dir = '../Step2/Transc_patients/',
+                      prot_dir = '../Step2/Prot_patients/',
+                      phospho_dir = '../Step2/Phospho_patients/',
+                      act_dir = '../Step2/Activities/',
                       mut_file = '../Step1/Brca_mutations.tsv',
                       output_dir = './Networks_output/',
                       desired_phenotypes = c("ANGIOGENESIS",
@@ -67,7 +65,7 @@ mutations_df <- read_tsv('../Step1/Brca_mutations.tsv', show_col_types = F)
 sources <- mutations_df[mutations_df$Patient_ID == patient_id, ]
 
 # Read activity file (intermediate nodes of the model)
-activities <- read_tsv(paste0('./Activities/Activity_constraints_Patient_', patient_id, '.tsv'), show_col_types = F)
+activities <- read_tsv(paste0('../Step2/Activities/Activity_constraints_Patient_', patient_id, '.tsv'), show_col_types = F)
 
 # Set the functional traits vector (final nodes of the model)
 desired_phenotypes <- c("ANGIOGENESIS",
@@ -84,9 +82,9 @@ desired_phenotypes <- c("ANGIOGENESIS",
                         "TELOMERE_MAINTENANCE")
 
 # Read omics file
-proteomics <- read_tsv(paste0('./Prot_patients/Prot_Patient_', patient_id, '.tsv'), , show_col_types = F)
-transcriptomics <- read_tsv(paste0('./Transc_patients/Transc_Patient_', patient_id, '.tsv'), show_col_types = F)
-phosphoproteomics <- read_tsv(paste0('./Phospho_patients/Phospho_Patient_', patient_id, '.tsv'),show_col_types = F)
+proteomics <- read_tsv(paste0('../Step2/Prot_patients/Prot_Patient_', patient_id, '.tsv'), , show_col_types = F)
+transcriptomics <- read_tsv(paste0('../Step2/Transc_patients/Transc_Patient_', patient_id, '.tsv'), show_col_types = F)
+phosphoproteomics <- read_tsv(paste0('../Step2/Phospho_patients/Phospho_Patient_', patient_id, '.tsv'),show_col_types = F)
 
 # ProxPath proteins-to-phenotypes pre-processing
 pheno_distances_table <- proxpath_preprocessing(proteomics = proteomics, 
@@ -119,9 +117,9 @@ create_network(patient_id = patient_id,
 
 ![](images/3A.svg)
 
-## FIGURES
+## Figures
 
-Summary of the network size, as shown by the distribution of the number of nodes (top) and edges (bottom) in individual patients, stratified by subtypes. The dashed-red bar indicates the average number of estimated nodes and edges in each subgroup. The result of this analysis is reported in **Figure 3B.**
+Summary of the network size, as shown by the distribution of the number of nodes and edges in individual patients, stratified by subtypes. The dashed-red bar indicates the average number of estimated nodes and edges in each subgroup. The result of this analysis is reported in **Figure 3B.**
 
 ```{r 3b, include=TRUE, eval = FALSE}
 # Load clinical data and extract patient ids
@@ -313,7 +311,7 @@ combined_plot <- plot_grid(plotlist = plot_list, ncol = 4, align = 'h', rel_heig
 
 ![](images/3B.svg)
 
-Activation level (power-log of the PhenoScore) of key hallmark phenotypes in different subtypes as measured in the STEP3 of the PatientProfiler pipeline. Subtype color code: Basal-l in red, LumA-l in blue, LumB-l in green, and HER2-l in yellow. The result of this analysis is reported in **Figure 3C.**
+Activation level (power-log of the PhenoScore) of key hallmark phenotypes in different subtypes as measured in the Step3 of the PatientProfiler pipeline. Subtype color code: Basal-l in red, LumA-l in blue, LumB-l in green, and HER2-l in yellow. The result of this analysis is reported in **Figure 3C.**
 
 ```{r phenoplot 3C, eval = FALSE}
 
