@@ -10,7 +10,6 @@
 
 
 
-<meta name="date" content="2025-03-05" />
 
 <title>Step 1: Harmonization of input data</title>
 
@@ -350,7 +349,6 @@ display: none;
 
 
 <h1 class="title toc-ignore">Step 1: Harmonization of input data</h1>
-<h4 class="date">2025-03-05</h4>
 
 </div>
 
@@ -359,9 +357,10 @@ display: none;
 <h2>Retrieve mutations’ functional impact</h2>
 <p>The mutations dataframe (somatic_mutation_dataframe.tsv) was prepared
 for subsequent annotation using MafAnnotator from OncoKB, as described
-here: <a href="https://github.com/oncokb/oncokb-annotator#oncokb-api" class="uri">https://github.com/oncokb/oncokb-annotator#oncokb-api</a>. A
-fter annotation, the processed mutation file was reimported and
-transformed into a gene-mutation matrix (Brca_mutations.tsv).</p>
+here: <a href="https://github.com/oncokb/oncokb-annotator#oncokb-api" class="uri">https://github.com/oncokb/oncokb-annotator#oncokb-api</a>.
+After annotation, the processed mutation file was re-imported and
+transformed into a gene-mutation matrix (Brca_mutations.tsv and
+Supplementary Table 2).</p>
 <pre class="r"><code># Load and preprocess the somatic mutation file for OncoKB annotation
 somatic_mutations &lt;- read_tsv(&quot;somatic_mutation_dataframe.tsv&quot;) %&gt;%
   t() %&gt;%
@@ -419,17 +418,20 @@ oncogenic_mutations %&gt;%
   mutate(genes_matrix[Patient_ID, Hugo_Symbol] &lt;&lt;- value)
 
 # Convert to dataframe and save
-matrice_geni &lt;- as.data.frame(genes_matrix) %&gt;%
+final_matrix &lt;- as.data.frame(genes_matrix) %&gt;%
   rownames_to_column(var = &quot;Patient_ID&quot;)
 
-write_tsv(matrice_geni, &quot;Brca_mutations.tsv&quot;)
-write_xlsx(matrice_geni, &quot;Table_1.xlsx&quot;)</code></pre>
+write_tsv(final_matrix, &quot;Brca_mutations.tsv&quot;)
+write_xlsx(final_matrix, &quot;Table_2.xlsx&quot;)</code></pre>
 </div>
 <div id="patientprofiler-step-1-harmonization-of-input-data" class="section level2">
 <h2>PatientProfiler Step 1: Harmonization of input data</h2>
 <p>In this first step, we processed the input breast cancer data
-(transcriptomics, proteomics, and phosphoproteomics) through parsing,
-filtering, imputation, quality control, and z-scoring.</p>
+(transcriptomics, proteomics, and phosphoproteomics) which were
+downloaded by following <a href="https://paynelab.github.io/cptac/tutorial01_data_intro.html" class="uri">https://paynelab.github.io/cptac/tutorial01_data_intro.html</a>
+through parsing, filtering, quality control, imputation and z-scoring.
+Results were saved as Transcriptomics_updated.tsv,
+Proteomics_updated.tsv, Phosphoproteomics_udpated.tsv.</p>
 <pre class="r"><code>transcriptomics_data &lt;- read_tsv(&quot;Brca_transc.tsv&quot;) 
 transcriptomics_data &lt;- transcriptomics_data %&gt;% dplyr::rename(gene_name = Name)
 
@@ -456,12 +458,9 @@ omics_update(
 </div>
 <div id="expression-level-of-known-biomarkers" class="section level2">
 <h2>Expression level of known biomarkers</h2>
-<p>Protein expression level of known biomarkers in different subtypes,
-after data manipulation (Step1) (ESR1: estrogen receptor, PGR:
-progesterone receptor, ERBB2/HER2: human epidermal growth factor
-receptor 2, TOP2A: proliferative biomarker)</p>
-<p>The result of this analysis is reported in <strong>Figure
-2F.</strong></p>
+<p>Analysis of protein expression level of known biomarkers (ESR1, PGR,
+TOP2A) in different subtypes, after data manipulation (Step1). The
+result is reported in <strong>Figure 2F.</strong></p>
 <pre class="r"><code>clinical_dataframe &lt;- read_tsv(&quot;clinical_dataframe.tsv&quot;) %&gt;%
   column_to_rownames(&quot;Name&quot;) %&gt;%
   t() %&gt;%

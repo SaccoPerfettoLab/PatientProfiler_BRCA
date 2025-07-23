@@ -1,7 +1,6 @@
 ---
 title: 'Step 1: Harmonization of input data'
 output: html_document
-date: "2025-03-05"
 ---
 
 ```{r setup, include=FALSE, eval=TRUE}
@@ -14,9 +13,7 @@ source('0.libraries.R')
 ## Retrieve mutations' functional impact 
 
 
-The mutations dataframe (somatic_mutation_dataframe.tsv) was prepared for subsequent annotation using MafAnnotator from OncoKB, as described here: https://github.com/oncokb/oncokb-annotator#oncokb-api. A
-fter annotation, the processed mutation file was reimported and transformed into a 
-gene-mutation matrix (Brca_mutations.tsv).
+The mutations dataframe (somatic_mutation_dataframe.tsv) was prepared for subsequent annotation using MafAnnotator from OncoKB, as described here: https://github.com/oncokb/oncokb-annotator#oncokb-api. After annotation, the processed mutation file was re-imported and transformed into a gene-mutation matrix (Brca_mutations.tsv and Supplementary Table 2).
  
 
 
@@ -79,11 +76,11 @@ oncogenic_mutations %>%
   mutate(genes_matrix[Patient_ID, Hugo_Symbol] <<- value)
 
 # Convert to dataframe and save
-matrice_geni <- as.data.frame(genes_matrix) %>%
+final_matrix <- as.data.frame(genes_matrix) %>%
   rownames_to_column(var = "Patient_ID")
 
-write_tsv(matrice_geni, "Brca_mutations.tsv")
-write_xlsx(matrice_geni, "Table_1.xlsx")
+write_tsv(final_matrix, "Brca_mutations.tsv")
+write_xlsx(final_matrix, "Table_2.xlsx")
 
 
 ```
@@ -92,7 +89,8 @@ write_xlsx(matrice_geni, "Table_1.xlsx")
 
 ## PatientProfiler Step 1: Harmonization of input data 
 
-In this first step, we processed the input breast cancer data (transcriptomics, proteomics, and phosphoproteomics) through parsing, filtering, imputation, quality control, and z-scoring.
+In this first step, we processed the input breast cancer data (transcriptomics, proteomics, and phosphoproteomics) which were downloaded by following https://paynelab.github.io/cptac/tutorial01_data_intro.html through parsing, filtering, quality control, imputation and z-scoring.
+Results were saved as Transcriptomics_updated.tsv, Proteomics_updated.tsv, Phosphoproteomics_udpated.tsv. 
 
 ```{r Step1, eval=FALSE}
 
@@ -126,10 +124,7 @@ omics_update(
 
 ## Expression level of known biomarkers
 
-Protein expression level of known biomarkers in different subtypes, after data manipulation (Step1) (ESR1: estrogen receptor, PGR: progesterone receptor, ERBB2/HER2: human epidermal growth factor receptor 2, TOP2A: proliferative biomarker)
-
-
-The result of this analysis is reported in **Figure 2F.**
+Analysis of protein expression level of known biomarkers (ESR1, PGR, TOP2A) in different subtypes, after data manipulation (Step1). The result is reported in **Figure 2F.**
 
 
 ```{r Expression level of known biomarkers, eval = FALSE}
