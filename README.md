@@ -22,11 +22,11 @@ The repository is divided in Steps:
 
 3.  [Step3: Generation of mechanistic models](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step3/Step3.html)
 
-4.  [Step4: Network-based startification](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step4.html)
+4.  [Step4: Network-based stratification](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step4/Step4.html)
 
 5.  [Step5: Identification of biomarkers](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Step5/Step5.html)
 
-Next, two additional folders contain the PatientProfiler robustness assessment and benchmarking:
+Next, one additional folders contain the PatientProfiler robustness assessment:
 
 -   **Robustness assessment** is divided in:
 
@@ -34,6 +34,5 @@ Next, two additional folders contain the PatientProfiler robustness assessment a
 
     -   [Cross-validation](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Robustness_analysis/crossvalidation.html)
 
--   [Benchmark: comparison with other methods to find signatures](https://html-preview.github.io/?url=https://github.com/SaccoPerfettoLab/PatientProfiler_BRCA/blob/main/Benchmark/Benchmark.html)
 
 <img src="./img/Figure1-2.svg" width="720" height="800"/>
